@@ -46,17 +46,15 @@ class TestSafe:
 
 class TestFormatValueLabels:
     def test_empty_dict(self):
-        assert _format_value_labels({}) == ""
+        assert _format_value_labels({}) is None
 
     def test_populated_dict(self):
         result = _format_value_labels({1: "Yes", 2: "No"})
-        assert "1=Yes" in result
-        assert "2=No" in result
-        assert ";" in result
+        assert result == {"1": "Yes", "2": "No"}
 
     def test_single_entry(self):
         result = _format_value_labels({0: "Male"})
-        assert result == "0=Male"
+        assert result == {"0": "Male"}
 
 
 class TestInferPandasType:

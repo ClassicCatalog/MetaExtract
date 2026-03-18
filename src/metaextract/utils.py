@@ -31,10 +31,10 @@ def _safe(val):
     return val
 
 
-def _format_value_labels(val_dict: dict) -> str:
+def _format_value_labels(val_dict: dict) -> dict | None:
     if not val_dict:
-        return ""
-    return "; ".join(f"{k}={v}" for k, v in val_dict.items())
+        return None
+    return {str(k): v for k, v in val_dict.items()}
 
 
 def _labels_are_numeric(value_labels: dict) -> bool:

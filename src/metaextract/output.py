@@ -1,5 +1,6 @@
 import csv
 import io
+import json
 
 from metaextract.utils import _safe
 
@@ -76,6 +77,8 @@ def build_csv_output(file_meta: dict, variables: list[dict]) -> str:
 
     for v in variables:
         row = {f: _safe(v.get(f)) for f in var_fields}
+        if isinstance(row.get("values"), dict):
+            row["values"] = json.dumps(row["values"])
         stats = v.get("stats") or {}
         for f in SCALAR_STAT_FIELDS:
             row[f"stat_{f}"] = _safe(stats.get(f))

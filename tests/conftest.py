@@ -23,7 +23,7 @@ def sample_variables():
             "label": "Age in years", "type": "numeric",
             "format": None, "width": None, "decimals": None,
             "measure": "scale", "missing_values": None,
-            "values": "", "_raw_value_labels": {},
+            "values": None, "_raw_value_labels": {},
             "stats": None,
         },
         {
@@ -31,7 +31,7 @@ def sample_variables():
             "label": None, "type": "numeric",
             "format": None, "width": None, "decimals": None,
             "measure": "scale", "missing_values": None,
-            "values": "", "_raw_value_labels": {},
+            "values": None, "_raw_value_labels": {},
             "stats": None,
         },
         {
@@ -39,7 +39,7 @@ def sample_variables():
             "label": None, "type": "string",
             "format": None, "width": None, "decimals": None,
             "measure": None, "missing_values": None,
-            "values": "", "_raw_value_labels": {},
+            "values": None, "_raw_value_labels": {},
             "stats": None,
         },
         {
@@ -47,7 +47,7 @@ def sample_variables():
             "label": None, "type": "boolean",
             "format": None, "width": None, "decimals": None,
             "measure": None, "missing_values": None,
-            "values": "", "_raw_value_labels": {},
+            "values": None, "_raw_value_labels": {},
             "stats": None,
         },
         {
@@ -55,7 +55,7 @@ def sample_variables():
             "label": None, "type": "datetime",
             "format": None, "width": None, "decimals": None,
             "measure": None, "missing_values": None,
-            "values": "", "_raw_value_labels": {},
+            "values": None, "_raw_value_labels": {},
             "stats": None,
         },
     ]

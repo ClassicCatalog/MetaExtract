@@ -117,7 +117,7 @@ def _generic_variables(df: pd.DataFrame, path: str, extra_meta: dict | None = No
             "decimals": None,
             "measure": None,
             "missing_values": None,
-            "values": "",
+            "values": None,
             "_raw_value_labels": {},
         })
 
