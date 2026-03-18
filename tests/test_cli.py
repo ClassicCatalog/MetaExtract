@@ -81,3 +81,105 @@ class TestCLIBasic:
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert len(data["variables"]) == 3
+
+
+class TestCLIDataPreview:
+    def test_head_two_rows(self, runner, sample_csv_path):
+        result = runner.invoke(main, [str(sample_csv_path), "--head", "2"])
+        assert result.exit_code == 0, result.output
+        data = json.loads(result.output)
+        assert "data_preview" in data
+        assert "head" in data["data_preview"]
+        assert "tail" not in data["data_preview"]
+        assert len(data["data_preview"]["head"]) == 2
+
+    def test_tail_one_row(self, runner, sample_csv_path):
+        result = runner.invoke(main, [str(sample_csv_path), "--tail", "1"])
+        assert result.exit_code == 0, result.output
+        data = json.loads(result.output)
+        assert "data_preview" in data
+        assert "tail" in data["data_preview"]
+        assert "head" not in data["data_preview"]
+        assert len(data["data_preview"]["tail"]) == 1
+
+    def test_head_and_tail(self, runner, sample_csv_path):
+        result = runner.invoke(main, [str(sample_csv_path), "--head", "1", "--tail", "1"])
+        assert result.exit_code == 0, result.output
+        data = json.loads(result.output)
+        assert "head" in data["data_preview"]
+        assert "tail" in data["data_preview"]
+
+    def test_head_exceeds_row_count(self, runner, sample_csv_path):
+        # sample_csv_path has 3 rows; --head 100 should return all 3
+        result = runner.invoke(main, [str(sample_csv_path), "--head", "100"])
+        assert result.exit_code == 0, result.output
+        data = json.loads(result.output)
+        assert len(data["data_preview"]["head"]) == 3
+
+    def test_no_flags_no_preview(self, runner, sample_csv_path):
+        result = runner.invoke(main, [str(sample_csv_path)])
+        assert result.exit_code == 0, result.output
+        data = json.loads(result.output)
+        assert "data_preview" not in data
+
+    def test_csv_output_with_head_warns(self, runner, sample_csv_path):
+        result = runner.invoke(main, [str(sample_csv_path), "--output-format", "csv", "--head", "2"])
+        assert result.exit_code == 0
+        # Warning goes to stderr; CliRunner mixes streams by default — check output contains warning
+        assert "Warning" in result.output or "warning" in result.output.lower()
+
+    def test_row_keys_are_lowercased(self, runner, tmp_path):
+        p = tmp_path / "mixed.csv"
+        p.write_text("ID,Name,Score\n1,Alice,95.5\n")
+        result = runner.invoke(main, [str(p), "--head", "1"])
+        assert result.exit_code == 0, result.output
+        data = json.loads(result.output)
+        row = data["data_preview"]["head"][0]
+        assert "id" in row
+        assert "name" in row
+        assert "score" in row
+
+    def test_tail_zero_returns_empty(self, runner, sample_csv_path):
+        result = runner.invoke(main, [str(sample_csv_path), "--tail", "0"])
+        assert result.exit_code == 0, result.output
+        data = json.loads(result.output)
+        assert data["data_preview"]["tail"] == []
+
+    def test_negative_head_rejected(self, runner, sample_csv_path):
+        result = runner.invoke(main, [str(sample_csv_path), "--head", "-1"])
+        assert result.exit_code != 0
+
+
+class TestCLIDataOnly:
+    def test_head_only_returns_array(self, runner, sample_csv_path):
+        result = runner.invoke(main, [str(sample_csv_path), "--head", "2", "--data-only"])
+        assert result.exit_code == 0, result.output
+        data = json.loads(result.output)
+        assert isinstance(data, list)
+        assert len(data) == 2
+
+    def test_tail_only_returns_array(self, runner, sample_csv_path):
+        result = runner.invoke(main, [str(sample_csv_path), "--tail", "1", "--data-only"])
+        assert result.exit_code == 0, result.output
+        data = json.loads(result.output)
+        assert isinstance(data, list)
+        assert len(data) == 1
+
+    def test_head_and_tail_returns_object(self, runner, sample_csv_path):
+        result = runner.invoke(main, [str(sample_csv_path), "--head", "1", "--tail", "1", "--data-only"])
+        assert result.exit_code == 0, result.output
+        data = json.loads(result.output)
+        assert isinstance(data, dict)
+        assert "head" in data and "tail" in data
+        assert isinstance(data["head"], list)
+        assert isinstance(data["tail"], list)
+
+    def test_data_only_without_head_or_tail_errors(self, runner, sample_csv_path):
+        result = runner.invoke(main, [str(sample_csv_path), "--data-only"])
+        assert result.exit_code != 0
+
+    def test_data_only_no_metadata_keys(self, runner, sample_csv_path):
+        result = runner.invoke(main, [str(sample_csv_path), "--head", "2", "--data-only"])
+        assert result.exit_code == 0, result.output
+        data = json.loads(result.output)
+        assert not any(k in data for k in ("variables", "dataset_summary", "source_file"))

@@ -39,7 +39,12 @@ def _build_dataset_summary(
     }
 
 
-def build_json_output(file_meta: dict, variables: list[dict]) -> dict:
+def build_json_output(
+    file_meta: dict,
+    variables: list[dict],
+    head_rows: list[dict] | None = None,
+    tail_rows: list[dict] | None = None,
+) -> dict:
     """Build the unified JSON output dict."""
     stats_computed = any(v.get("stats") is not None for v in variables)
 
@@ -53,6 +58,15 @@ def build_json_output(file_meta: dict, variables: list[dict]) -> dict:
         var_list.append(var_dict)
 
     result = {**file_meta, "dataset_summary": dataset_summary, "variables": var_list}
+
+    if head_rows is not None or tail_rows is not None:
+        data_preview = {}
+        if head_rows is not None:
+            data_preview["head"] = head_rows
+        if tail_rows is not None:
+            data_preview["tail"] = tail_rows
+        result["data_preview"] = data_preview
+
     return result
 
 

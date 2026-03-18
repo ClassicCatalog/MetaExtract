@@ -32,6 +32,9 @@ The format is inferred from the file suffix. Use `-f` to override.
 | `--sheet TEXT` | `0` | Excel sheet name or 0-based index |
 | `--top-n INTEGER` | `20` | Number of top string values to include in stats |
 | `--no-stats` | off | Skip summary statistics |
+| `--head INTEGER` | off | Include the first N rows of data in JSON output |
+| `--tail INTEGER` | off | Include the last N rows of data in JSON output |
+| `--data-only` | off | Output only the data rows; omits metadata (requires `--head`/`--tail`) |
 
 TSV files (`.tsv`) automatically use `\t` as the delimiter.
 
@@ -59,6 +62,49 @@ metaextract data.txt -f csv --delimiter '|'
 # Specific Excel sheet
 metaextract report.xlsx --sheet "Summary"
 ```
+
+## Data Preview
+
+`--head N` and `--tail N` append the first or last N rows of actual data to the JSON output under a `data_preview` key. Both flags can be used together.
+
+```bash
+# First 5 rows
+metaextract data.csv --head 5
+
+# Last 3 rows
+metaextract data.csv --tail 3
+
+# Both ends
+metaextract data.csv --head 2 --tail 2
+
+# Data rows only, no metadata
+metaextract data.csv --head 5 --data-only
+metaextract data.csv --tail 3 --data-only
+metaextract data.csv --head 2 --tail 2 --data-only
+```
+
+The preview appears at the end of the JSON output:
+
+```json
+{
+  "file_meta": {...},
+  "dataset_summary": {...},
+  "variables": [...],
+  "data_preview": {
+    "head": [
+      {"id": 1, "name": "Alice", "score": 95.5},
+      {"id": 2, "name": "Bob",   "score": 82.0}
+    ],
+    "tail": [
+      {"id": 99, "name": "Zara", "score": 88.1}
+    ]
+  }
+}
+```
+
+Row keys are always lowercased to match variable names in the `variables` list. If N exceeds the number of rows in the file, all rows are returned. `--head`/`--tail` are ignored when `--output-format csv` is used (a warning is printed to stderr).
+
+Add `--data-only` to strip all metadata and return just the rows. With only `--head` or only `--tail`, the output is a flat JSON array. With both, it is `{"head": [...], "tail": [...]}`. `--data-only` requires at least one of `--head`/`--tail`.
 
 ## Output
 

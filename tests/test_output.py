@@ -70,6 +70,39 @@ class TestBuildCSVOutput:
         assert len(rows) == 5
 
 
+class TestBuildJsonOutputDataPreview:
+    def test_no_preview_by_default(self, sample_file_meta, variables_with_stats):
+        result = build_json_output(sample_file_meta, variables_with_stats)
+        assert "data_preview" not in result
+
+    def test_head_only(self, sample_file_meta, variables_with_stats):
+        rows = [{"age": 25, "score": 1.1}]
+        result = build_json_output(sample_file_meta, variables_with_stats, head_rows=rows)
+        assert "data_preview" in result
+        assert "head" in result["data_preview"]
+        assert "tail" not in result["data_preview"]
+        assert result["data_preview"]["head"] == rows
+
+    def test_tail_only(self, sample_file_meta, variables_with_stats):
+        rows = [{"age": 35, "score": 5.5}]
+        result = build_json_output(sample_file_meta, variables_with_stats, tail_rows=rows)
+        assert "data_preview" in result
+        assert "tail" in result["data_preview"]
+        assert "head" not in result["data_preview"]
+
+    def test_both_head_and_tail(self, sample_file_meta, variables_with_stats):
+        head = [{"age": 25}]
+        tail = [{"age": 35}]
+        result = build_json_output(sample_file_meta, variables_with_stats, head_rows=head, tail_rows=tail)
+        assert "head" in result["data_preview"]
+        assert "tail" in result["data_preview"]
+
+    def test_empty_head_rows(self, sample_file_meta, variables_with_stats):
+        result = build_json_output(sample_file_meta, variables_with_stats, head_rows=[])
+        assert "data_preview" in result
+        assert result["data_preview"]["head"] == []
+
+
 class TestBuildDatasetSummary:
     def test_stats_computed_true(self, sample_file_meta, variables_with_stats):
         summary = _build_dataset_summary(sample_file_meta, variables_with_stats, stats_computed=True)

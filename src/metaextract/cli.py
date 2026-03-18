@@ -2,11 +2,22 @@ import json
 import sys
 from pathlib import Path
 
+import pandas as pd
 import rich_click as click
 
-from metaextract.utils import SUFFIX_TO_FORMAT
+from metaextract.utils import SUFFIX_TO_FORMAT, _safe
 from metaextract.stats import compute_all_stats
 from metaextract.output import build_json_output, build_csv_output
+
+
+def _slice_to_rows(slice_df, col_name_map):
+    rows = []
+    for _, row in slice_df.iterrows():
+        rows.append({
+            col_name_map[col]: None if val is pd.NaT else _safe(val)
+            for col, val in row.items()
+        })
+    return rows
 
 
 @click.command()
@@ -34,6 +45,12 @@ from metaextract.output import build_json_output, build_csv_output
               help="Skip summary statistics computation.")
 @click.option("--cardinality-threshold", default=10, show_default=True,
               help="Numeric variables with this many or fewer unique values are reported as discrete.")
+@click.option("--head", "head", default=None, type=click.IntRange(min=0),
+              help="Include the first N rows of data in JSON output.")
+@click.option("--tail", "tail", default=None, type=click.IntRange(min=0),
+              help="Include the last N rows of data in JSON output.")
+@click.option("--data-only", is_flag=True, default=False,
+              help="Output only the data rows (requires --head and/or --tail).")
 def main(
     input_file,
     input_format,
@@ -47,6 +64,9 @@ def main(
     top_n,
     no_stats,
     cardinality_threshold,
+    head,
+    tail,
+    data_only,
 ):
     """Extract metadata and statistics from data files.
 
@@ -104,9 +124,29 @@ def main(
         cardinality_threshold=cardinality_threshold,
     )
 
+    # Validate --data-only
+    if data_only and head is None and tail is None:
+        raise click.UsageError("--data-only requires --head and/or --tail.")
+
+    # Build data preview rows
+    if output_format == "csv" and (head is not None or tail is not None):
+        click.echo("Warning: --head/--tail is not supported for CSV output and will be ignored.", err=True)
+
+    col_name_map = {v["_raw_col_name"]: v["name"] for v in variables}
+    head_rows = _slice_to_rows(df.head(head), col_name_map) if head is not None else None
+    tail_rows = _slice_to_rows(df.tail(tail), col_name_map) if tail is not None else None
+
     # Build output
     if output_format == "json":
-        data = build_json_output(file_meta, variables)
+        if data_only:
+            if head_rows is not None and tail_rows is not None:
+                data = {"head": head_rows, "tail": tail_rows}
+            elif head_rows is not None:
+                data = head_rows
+            else:
+                data = tail_rows
+        else:
+            data = build_json_output(file_meta, variables, head_rows=head_rows, tail_rows=tail_rows)
         text = json.dumps(data, indent=2, default=str)
     else:
         text = build_csv_output(file_meta, variables)
