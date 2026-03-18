@@ -1,2 +1,149 @@
-# DataAnalyzer
-Scripts to extract metadata and summary statistics from SPSS, CSVs, and other data files
+# metaextract
+
+CLI tool for extracting metadata and summary statistics from data files. Supports CSV, SPSS, SAS, Stata, Excel, and Parquet. Outputs a single unified JSON or flat CSV file.
+
+## Installation
+
+Requires Python 3.12+.
+
+```bash
+python3.12 -m venv venv
+source venv/bin/activate
+pip install -e ".[dev]"
+```
+
+## Usage
+
+```
+metaextract [OPTIONS] INPUT_FILE
+```
+
+The format is inferred from the file suffix. Use `-f` to override.
+
+| Option | Default | Description |
+|---|---|---|
+| `-f, --input-format` | (inferred) | Force format: `csv` `spss` `sas` `stata` `excel` `parquet` |
+| `--output-format [json\|csv]` | `json` | Output format |
+| `-o, --output PATH` | stdout | Write output to file |
+| `--delimiter TEXT` | `,` | CSV/TSV field delimiter |
+| `--quotechar TEXT` | `"` | CSV quote character |
+| `--encoding TEXT` | `utf-8` | File encoding |
+| `--no-header` | off | CSV has no header row; columns named `col_0`, `col_1`, … |
+| `--sheet TEXT` | `0` | Excel sheet name or 0-based index |
+| `--top-n INTEGER` | `20` | Number of top string values to include in stats |
+| `--no-stats` | off | Skip summary statistics |
+
+TSV files (`.tsv`) automatically use `\t` as the delimiter.
+
+### Examples
+
+```bash
+# JSON to stdout
+metaextract codebook.sav
+
+# JSON to file
+metaextract codebook.sav -o out.json
+
+# Flat CSV output
+metaextract codebook.sav --output-format csv -o out.csv
+
+# Skip statistics
+metaextract codebook.sav --no-stats
+
+# CSV with no header row
+metaextract data.csv --no-header
+
+# Force format, custom delimiter
+metaextract data.txt -f csv --delimiter '|'
+
+# Specific Excel sheet
+metaextract report.xlsx --sheet "Summary"
+```
+
+## Output
+
+All output is a single file (JSON default, or flat CSV with `--output-format csv`).
+
+### JSON structure
+
+```json
+{
+  "source_file": "codebook.sav",
+  "file_label": "...",
+  "file_encoding": "UTF-8",
+  "number_rows": 2649,
+  "number_columns": 305,
+  "creation_time": "...",
+  "modification_time": "...",
+  "notes": [],
+  "dataset_summary": {
+    "stats_computed": true,
+    "total_variables": 305,
+    "continuous_variable_count": 120,
+    "categorical_variable_count": 150,
+    "string_variable_count": 35,
+    "overall_percent_missing": 4.2
+  },
+  "variables": [
+    {
+      "name": "age",
+      "label": "Age in years",
+      "type": "numeric",
+      "format": "F8.2",
+      "width": 8,
+      "decimals": 2,
+      "measure": "scale",
+      "missing_values": null,
+      "values": "",
+      "stats": {
+        "stat_type": "continuous",
+        "mean": 42.3,
+        "median": 41.0,
+        "std": 12.1,
+        "min": 18.0,
+        "max": 89.0,
+        ...
+      }
+    }
+  ]
+}
+```
+
+### CSV structure
+
+One row per variable. Scalar stat fields are prefixed `stat_`. Nested structures (e.g. `value_frequencies`) are omitted.
+
+## Supported Formats
+
+| Format | Extensions | Reader |
+|---|---|---|
+| CSV / TSV | `.csv`, `.tsv` | pandas |
+| SPSS | `.sav` | pyreadstat |
+| SAS | `.sas7bdat` | pyreadstat |
+| Stata | `.dta` | pyreadstat |
+| Excel | `.xlsx`, `.xls` | pandas + openpyxl/xlrd |
+| Parquet | `.parquet` | pandas + pyarrow |
+
+## Project Structure
+
+```
+src/metaextract/
+  cli.py       — rich-click entry point
+  readers.py   — one reader per format; each returns (df, file_meta, variables)
+  stats.py     — _is_categorical, _compute_freq, _compute_variable_stats, compute_all_stats
+  output.py    — build_json_output, build_csv_output
+  utils.py     — SUFFIX_TO_FORMAT, _safe, infer_pandas_type, file_timestamps
+tests/
+  conftest.py  — shared fixtures
+  data/        — CSV, TSV fixture files
+  test_utils.py, test_stats.py, test_readers.py, test_output.py, test_cli.py
+```
+
+## Testing
+
+```bash
+pytest tests/ -v
+pytest tests/ -v --cov=src/metaextract
+```
+
+67 tests covering utils, stats, readers, output builders, and CLI integration.

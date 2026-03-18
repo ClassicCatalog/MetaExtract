@@ -1,0 +1,30 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "metaextract"
+version = "0.1.0"
+description = "CLI metadata extraction tool for SPSS, SAS, Stata, CSV, Excel, and Parquet files"
+requires-python = ">=3.12"
+dependencies = [
+    "rich-click",
+    "pandas>=2.0",
+    "pyreadstat",
+    "openpyxl",
+    "xlrd",
+    "pyarrow",
+    "numpy",
+]
+
+[project.scripts]
+metaextract = "metaextract.cli:main"
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "pytest-cov",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/metaextract"]
