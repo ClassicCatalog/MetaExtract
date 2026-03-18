@@ -4,6 +4,10 @@ import os
 import numpy as np
 import pandas as pd
 
+LOW_CARDINALITY_THRESHOLD = 10  # numeric vars with <= this many unique values → discrete
+DISCRETE_CARDINALITY_RATIO = 0.01  # unique/total < 1% also signals discrete
+DISCRETE_NAME_PREFIXES = ("is_", "has_", "flag_", "ind_")  # naming conventions → discrete
+
 SUFFIX_TO_FORMAT = {
     ".csv": "csv",
     ".tsv": "csv",

@@ -1,7 +1,12 @@
 import numpy as np
 import pandas as pd
 
-from metaextract.utils import _safe, _labels_are_numeric
+from metaextract.utils import (
+    _safe,
+    _labels_are_numeric,
+    DISCRETE_CARDINALITY_RATIO,
+    DISCRETE_NAME_PREFIXES,
+)
 
 
 def _is_categorical(var_type: str, measure: str, value_labels: dict) -> bool:
@@ -21,6 +26,23 @@ def _is_categorical(var_type: str, measure: str, value_labels: dict) -> bool:
             return False
         return not _labels_are_numeric(value_labels)
     return bool(value_labels)
+
+
+def _is_discrete(name: str, n_unique: int, total: int, threshold: int) -> bool:
+    """Detect numeric variables that are better reported as discrete (frequency-based).
+
+    Signals (any one triggers discrete):
+    1. Name prefix convention — is_, has_, flag_, ind_ imply coded categories.
+    2. Absolute low cardinality — unique values <= threshold (default 10).
+    3. Relative low cardinality — unique/total < 1%, catches ordinal scales in large datasets.
+    """
+    if any(name.lower().startswith(p) for p in DISCRETE_NAME_PREFIXES):
+        return True
+    if n_unique <= threshold:
+        return True
+    if total > 0 and n_unique / total < DISCRETE_CARDINALITY_RATIO:
+        return True
+    return False
 
 
 def _compute_freq(col: pd.Series, value_labels: dict, non_null: int) -> dict:
@@ -47,6 +69,7 @@ def _compute_variable_stats(
     value_labels: dict,
     measure: str,
     top_n: int = 20,
+    cardinality_threshold: int = 10,
 ) -> dict:
     """Compute comprehensive summary statistics for a single variable."""
     total = len(series)
@@ -60,6 +83,8 @@ def _compute_variable_stats(
         stat_type = "string"
     elif is_cat:
         stat_type = "categorical"
+    elif measure != "scale" and _is_discrete(var, n_unique, total, cardinality_threshold):
+        stat_type = "discrete"
     else:
         stat_type = "continuous"
 
@@ -132,6 +157,20 @@ def _compute_variable_stats(
                 for val, cnt in value_counts.items()
             }
 
+    elif stat_type == "discrete":
+        col = pd.to_numeric(series, errors="coerce")
+        valid = col.dropna()
+        value_counts = valid.value_counts().sort_index()
+        stats["value_frequencies"] = {
+            str(val): {
+                "count": int(cnt),
+                "percent": round(cnt / non_null * 100, 2),
+            }
+            for val, cnt in value_counts.items()
+        }
+        stats["min"] = _safe(valid.min())
+        stats["max"] = _safe(valid.max())
+
     else:  # string
         valid = series.dropna()
         if len(valid) > 0:
@@ -163,6 +202,7 @@ def compute_all_stats(
     variables: list[dict],
     top_n: int,
     skip_stats: bool,
+    cardinality_threshold: int = 10,
 ) -> list[dict]:
     """Compute stats for all variables; attaches result to each variable dict."""
     for var in variables:
@@ -181,6 +221,7 @@ def compute_all_stats(
             var["stats"] = None
         else:
             var["stats"] = _compute_variable_stats(
-                var["name"], series, var_type, value_labels, measure, top_n=top_n
+                var["name"], series, var_type, value_labels, measure,
+                top_n=top_n, cardinality_threshold=cardinality_threshold,
             )
     return variables

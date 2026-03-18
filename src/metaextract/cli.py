@@ -32,6 +32,8 @@ from metaextract.output import build_json_output, build_csv_output
               help="Number of top string values to include.")
 @click.option("--no-stats", is_flag=True, default=False,
               help="Skip summary statistics computation.")
+@click.option("--cardinality-threshold", default=10, show_default=True,
+              help="Numeric variables with this many or fewer unique values are reported as discrete.")
 def main(
     input_file,
     input_format,
@@ -44,6 +46,7 @@ def main(
     sheet,
     top_n,
     no_stats,
+    cardinality_threshold,
 ):
     """Extract metadata and statistics from data files.
 
@@ -96,7 +99,10 @@ def main(
         raise click.ClickException(str(exc)) from exc
 
     # Compute stats
-    variables = compute_all_stats(df, variables, top_n=top_n, skip_stats=no_stats)
+    variables = compute_all_stats(
+        df, variables, top_n=top_n, skip_stats=no_stats,
+        cardinality_threshold=cardinality_threshold,
+    )
 
     # Build output
     if output_format == "json":
