@@ -94,7 +94,7 @@ All output is a single file (JSON default, or flat CSV with `--output-format csv
       "decimals": 2,
       "measure": "scale",
       "missing_values": null,
-      "values": "",
+      "values": {"1.0": "very slightly or not at all", "2.0": "a little", ...},
       "stats": {
         "stat_type": "continuous",
         "mean": 42.3,
@@ -143,7 +143,26 @@ tests/
 
 ```bash
 pytest tests/ -v
-pytest tests/ -v --cov=src/metaextract
 ```
 
-67 tests covering utils, stats, readers, output builders, and CLI integration.
+Coverage runs automatically (configured in `pyproject.toml`). The text summary prints after every test run. To view it again without re-running tests:
+
+```bash
+coverage report
+```
+
+To view an HTML report:
+
+```bash
+pytest tests/ --cov-report=html && open htmlcov/index.html
+```
+
+Current coverage: **82% overall** (67 tests).
+
+| Module | Coverage | Notes |
+|---|---|---|
+| `stats.py` | 99% | |
+| `output.py` | 97% | |
+| `utils.py` | 95% | `st_birthtime` fallback (non-macOS only) |
+| `cli.py` | 76% | SPSS/SAS/Stata branches, file output path |
+| `readers.py` | 47% | SPSS, SAS, Stata readers require binary fixture files |

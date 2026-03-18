@@ -28,3 +28,14 @@ dev = [
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/metaextract"]
+
+[tool.pytest.ini_options]
+addopts = "--cov=src/metaextract --cov-report=term-missing"
+
+[tool.coverage.run]
+source = ["src/metaextract"]
+omit = []
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false
