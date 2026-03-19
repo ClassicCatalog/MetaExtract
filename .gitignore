@@ -208,3 +208,5 @@ __marimo__/
 
 
 .DS_Store
+sample_files/naws_all.sas7bdat
+sample_files/qualtrics_sample.csv
