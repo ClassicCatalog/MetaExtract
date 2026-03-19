@@ -4,35 +4,76 @@ CLI tool for extracting metadata and summary statistics from data files. Support
 
 ## Installation
 
-Requires Python 3.12+.
+MetaExtract requires Python 3.12 or newer.
 
-### macOS / Linux / WSL
+If you do not already have Python installed, download it from [python.org](https://www.python.org/downloads/) and install it before continuing.
 
-Use these commands in Terminal on macOS, your Linux shell, or inside your WSL distribution:
+Note: the examples below use Python 3.12. If your installed version is different, replace `3.12` in the commands with your installed version. For example, if you have Python 3.13, use `python3.13` or `py -3.13` instead.
+
+### 1. Download the repository
+
+You can download the project in either of these ways:
+
+- Repository page: [ClassicCatalog/MetaExtract](https://github.com/ClassicCatalog/MetaExtract)
+- Direct ZIP download: [main.zip](https://github.com/ClassicCatalog/MetaExtract/archive/refs/heads/main.zip)
+
+If you download the ZIP file:
+
+1. Download [main.zip](https://github.com/ClassicCatalog/MetaExtract/archive/refs/heads/main.zip).
+2. Extract it.
+3. Open the extracted `MetaExtract-main` folder.
+
+### 2. Open a terminal in the project folder
+
+You need to run the installation commands from inside the folder that contains `README.md` and `pyproject.toml`.
+
+### 3. Create a virtual environment and install MetaExtract
+
+#### macOS / Linux / WSL
+
+Open Terminal and change into the project folder, then run:
 
 ```bash
 python3.12 -m venv venv
 source venv/bin/activate
-pip install -e ".[dev]"
-```
-
-### Windows
-
-In PowerShell:
-
-```powershell
-py -3.12 -m venv venv
-venv\Scripts\Activate.ps1
 python -m pip install -e ".[dev]"
 ```
 
-In Command Prompt:
+#### Windows PowerShell
+
+Open PowerShell in the project folder, then run:
+
+```powershell
+py -3.12 -m venv venv
+.\venv\Scripts\Activate.ps1
+python -m pip install -e ".[dev]"
+```
+
+If PowerShell blocks the activation script, run this once in the same PowerShell window and then try again:
+
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+```
+
+#### Windows Command Prompt
+
+Open Command Prompt in the project folder, then run:
 
 ```bat
 py -3.12 -m venv venv
 venv\Scripts\activate.bat
 python -m pip install -e ".[dev]"
 ```
+
+### 4. Confirm that the installation worked
+
+After installation, run:
+
+```bash
+metaextract --help
+```
+
+If that prints the help text, MetaExtract is installed and ready to use.
 
 ## Usage
 
