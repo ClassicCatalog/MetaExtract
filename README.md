@@ -6,10 +6,32 @@ CLI tool for extracting metadata and summary statistics from data files. Support
 
 Requires Python 3.12+.
 
+### macOS / Linux / WSL
+
+Use these commands in Terminal on macOS, your Linux shell, or inside your WSL distribution:
+
 ```bash
 python3.12 -m venv venv
 source venv/bin/activate
 pip install -e ".[dev]"
+```
+
+### Windows
+
+In PowerShell:
+
+```powershell
+py -3.12 -m venv venv
+venv\Scripts\Activate.ps1
+python -m pip install -e ".[dev]"
+```
+
+In Command Prompt:
+
+```bat
+py -3.12 -m venv venv
+venv\Scripts\activate.bat
+python -m pip install -e ".[dev]"
 ```
 
 ## Usage
