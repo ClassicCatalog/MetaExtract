@@ -23,7 +23,7 @@ def _slice_to_rows(slice_df, col_name_map):
 @click.command()
 @click.argument("input_file", type=click.Path(exists=True, dir_okay=False))
 @click.option("-f", "--input-format",
-              type=click.Choice(["csv", "spss", "sas", "stata", "excel", "parquet"]),
+              type=click.Choice(["csv", "qualtrics", "spss", "sas", "stata", "excel", "parquet"]),
               default=None, help="Force input format (default: inferred from suffix).")
 @click.option("--output-format", type=click.Choice(["json", "csv"]), default="json",
               show_default=True, help="Output format.")
@@ -81,7 +81,7 @@ def main(
         if fmt is None:
             raise click.UsageError(
                 f"Cannot infer format from suffix '{suffix}'. "
-                "Use -f/--input-format to specify: csv, spss, sas, stata, excel, parquet."
+                "Use -f/--input-format to specify: csv, qualtrics, spss, sas, stata, excel, parquet."
             )
     else:
         fmt = input_format
@@ -106,6 +106,11 @@ def main(
             df, file_meta, variables = read_csv(
                 str(path), delimiter=delimiter, quotechar=quotechar,
                 encoding=encoding, no_header=no_header,
+            )
+        elif fmt == "qualtrics":
+            from metaextract.readers import read_qualtrics_csv
+            df, file_meta, variables = read_qualtrics_csv(
+                str(path), delimiter=delimiter, quotechar=quotechar, encoding=encoding,
             )
         elif fmt == "excel":
             from metaextract.readers import read_excel

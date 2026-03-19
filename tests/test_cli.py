@@ -74,6 +74,15 @@ class TestCLIBasic:
         data = json.loads(result.output)
         assert "variables" in data
 
+    def test_force_format_with_qualtrics(self, runner, qualtrics_csv_path):
+        result = runner.invoke(main, [str(qualtrics_csv_path), "-f", "qualtrics", "--no-stats"])
+        assert result.exit_code == 0, result.output
+        data = json.loads(result.output)
+        assert data["csv_mode"] == "qualtrics"
+        assert data["metadata_rows_skipped"] == 1
+        assert data["variables"][1]["name"] == "qid1"
+        assert data["variables"][1]["label"] == "How satisfied are you?"
+
     def test_tsv_auto_delimiter(self, runner, tmp_path):
         p = tmp_path / "data.tsv"
         p.write_text("a\tb\tc\n1\t2\t3\n4\t5\t6\n")
@@ -149,6 +158,15 @@ class TestCLIDataPreview:
         result = runner.invoke(main, [str(sample_csv_path), "--head", "-1"])
         assert result.exit_code != 0
 
+    def test_qualtrics_head_starts_with_first_response_row(self, runner, qualtrics_csv_path):
+        result = runner.invoke(main, [str(qualtrics_csv_path), "-f", "qualtrics", "--head", "1", "--no-stats"])
+        assert result.exit_code == 0, result.output
+        data = json.loads(result.output)
+        row = data["data_preview"]["head"][0]
+        assert row["responseid"] == "R_1"
+        assert row["qid1"] == "Very satisfied"
+        assert row["qid2"] == "Great service"
+
 
 class TestCLIDataOnly:
     def test_head_only_returns_array(self, runner, sample_csv_path):
@@ -183,3 +201,14 @@ class TestCLIDataOnly:
         assert result.exit_code == 0, result.output
         data = json.loads(result.output)
         assert not any(k in data for k in ("variables", "dataset_summary", "source_file"))
+
+
+class TestCLIQualtricsStats:
+    def test_qualtrics_stats_do_not_include_label_row(self, runner, qualtrics_csv_path):
+        result = runner.invoke(main, [str(qualtrics_csv_path), "-f", "qualtrics"])
+        assert result.exit_code == 0, result.output
+        data = json.loads(result.output)
+        qid1 = next(v for v in data["variables"] if v["name"] == "qid1")
+        top_values = qid1["stats"]["top_values"]
+        assert all(item["value"] != "How satisfied are you?" for item in top_values)
+        assert {item["value"] for item in top_values} == {"Very satisfied", "Neutral"}

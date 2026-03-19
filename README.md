@@ -1,6 +1,6 @@
 # metaextract
 
-CLI tool for extracting metadata and summary statistics from data files. Supports CSV, SPSS, SAS, Stata, Excel, and Parquet. Outputs a single unified JSON or flat CSV file.
+CLI tool for extracting metadata and summary statistics from data files. Supports CSV, Qualtrics CSV, SPSS, SAS, Stata, Excel, and Parquet. Outputs a single unified JSON or flat CSV file.
 
 ## Installation
 
@@ -85,7 +85,7 @@ The format is inferred from the file suffix. Use `-f` to override.
 
 | Option | Default | Description |
 |---|---|---|
-| `-f, --input-format` | (inferred) | Force format: `csv` `spss` `sas` `stata` `excel` `parquet` |
+| `-f, --input-format` | (inferred) | Force format: `csv` `qualtrics` `spss` `sas` `stata` `excel` `parquet` |
 | `--output-format [json\|csv]` | `json` | Output format |
 | `-o, --output PATH` | stdout | Write output to file |
 | `--delimiter TEXT` | `,` | CSV/TSV field delimiter |
@@ -122,9 +122,14 @@ metaextract data.csv --no-header
 # Force format, custom delimiter
 metaextract data.txt -f csv --delimiter '|'
 
+# Qualtrics CSV export
+metaextract qualtrics_export.csv -f qualtrics
+
 # Specific Excel sheet
 metaextract report.xlsx --sheet "Summary"
 ```
+
+When `-f qualtrics` is used, MetaExtract reads the first row as the Qualtrics field IDs, uses the second row as variable labels, and starts data rows from the third line of the file.
 
 ## Data Preview
 

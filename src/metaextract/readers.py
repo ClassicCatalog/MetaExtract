@@ -1,3 +1,4 @@
+import csv
 import re
 
 import pandas as pd
@@ -163,6 +164,49 @@ def read_csv(
     if no_header:
         df.columns = [f"col_{i}" for i in range(len(df.columns))]
     file_meta, variables = _generic_variables(df, path)
+    return df, file_meta, variables
+
+
+def read_qualtrics_csv(
+    path: str,
+    delimiter: str = ",",
+    quotechar: str = '"',
+    encoding: str = "utf-8",
+) -> tuple[pd.DataFrame, dict, list[dict]]:
+    with open(path, newline="", encoding=encoding) as fh:
+        reader = csv.reader(fh, delimiter=delimiter, quotechar=quotechar)
+        try:
+            column_names = next(reader)
+            column_labels = next(reader)
+        except StopIteration as exc:
+            raise ValueError("Qualtrics CSV must include header and label rows.") from exc
+
+    if len(column_names) != len(column_labels):
+        raise ValueError("Qualtrics CSV header and label rows must have the same number of columns.")
+
+    df = pd.read_csv(
+        path,
+        delimiter=delimiter,
+        quotechar=quotechar,
+        encoding=encoding,
+        header=0,
+        skiprows=[1],
+    )
+    df = _trim_string_columns(df)
+
+    file_meta, variables = _generic_variables(
+        df,
+        path,
+        extra_meta={
+            "csv_mode": "qualtrics",
+            "metadata_rows_skipped": 1,
+        },
+    )
+
+    label_map = dict(zip(column_names, column_labels))
+    for variable in variables:
+        variable["label"] = label_map.get(variable["_raw_col_name"]) or None
+
     return df, file_meta, variables
 
 

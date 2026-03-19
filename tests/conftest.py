@@ -83,6 +83,18 @@ def sample_csv_path(tmp_path):
 
 
 @pytest.fixture
+def qualtrics_csv_path(tmp_path):
+    p = tmp_path / "qualtrics.csv"
+    p.write_text(
+        "ResponseId,QID1,QID2\n"
+        "Response ID,How satisfied are you?,Please describe your experience\n"
+        "R_1,Very satisfied,Great service\n"
+        "R_2,Neutral,It was fine\n"
+    )
+    return p
+
+
+@pytest.fixture
 def sample_excel_path(tmp_path):
     import openpyxl
     wb = openpyxl.Workbook()

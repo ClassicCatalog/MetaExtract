@@ -3,7 +3,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from metaextract.readers import read_csv, read_excel, read_parquet, read_sas
+from metaextract.readers import read_csv, read_excel, read_parquet, read_qualtrics_csv, read_sas
 
 
 class TestReadCSV:
@@ -56,6 +56,27 @@ class TestReadCSV:
         df, _, _ = read_csv(str(p))
         assert df["name"].iloc[0] == "Alice"
         assert df["city"].iloc[0] == "Boston"
+
+    def test_qualtrics_reader_skips_label_row(self, qualtrics_csv_path):
+        df, file_meta, variables = read_qualtrics_csv(str(qualtrics_csv_path))
+        assert len(df) == 2
+        assert df.iloc[0]["ResponseId"] == "R_1"
+        assert file_meta["csv_mode"] == "qualtrics"
+        assert file_meta["metadata_rows_skipped"] == 1
+        assert variables[0]["name"] == "responseid"
+        assert variables[1]["name"] == "qid1"
+        assert variables[1]["label"] == "How satisfied are you?"
+        assert variables[2]["label"] == "Please describe your experience"
+
+    def test_qualtrics_reader_trims_data_values(self, tmp_path):
+        p = tmp_path / "qualtrics_trim.csv"
+        p.write_text(
+            "ResponseId,QID1\n"
+            "Response ID,Question text\n"
+            "R_1,  Yes  \n"
+        )
+        df, _, _ = read_qualtrics_csv(str(p))
+        assert df["QID1"].iloc[0] == "Yes"
 
 
 class TestReadExcel:
