@@ -6,6 +6,18 @@ import pyreadstat
 from metaextract.utils import _format_value_labels, infer_pandas_type, file_timestamps
 
 
+def _trim_string_columns(df: pd.DataFrame) -> pd.DataFrame:
+    """Trim leading/trailing whitespace from string-like columns."""
+    for col in df.columns:
+        if pd.api.types.is_string_dtype(df[col].dtype) or pd.api.types.is_object_dtype(df[col].dtype):
+            non_null = df[col].dropna()
+            if non_null.empty:
+                continue
+            if non_null.map(lambda val: isinstance(val, str)).all():
+                df[col] = df[col].str.strip()
+    return df
+
+
 def _infer_spss_type(var_name: str, meta) -> str:
     fmt = None
     if hasattr(meta, "original_variable_types") and meta.original_variable_types:
@@ -15,7 +27,12 @@ def _infer_spss_type(var_name: str, meta) -> str:
         if fmt_str.upper().startswith("A"):
             return "string"
         return "numeric"
-    return "string" if pd.api.types.is_object_dtype(meta.readstat_variable_types.get(var_name, "")) else "numeric"
+    readstat_type = str(getattr(meta, "readstat_variable_types", {}).get(var_name, "")).lower()
+    if readstat_type in {"string", "str"}:
+        return "string"
+    if readstat_type in {"double", "float", "int", "integer"}:
+        return "numeric"
+    return "numeric"
 
 
 def _parse_spss_format(var_name: str, meta):
@@ -74,18 +91,21 @@ def _spss_like_variables(df: pd.DataFrame, meta, path: str) -> tuple[dict, list[
 
 def read_spss(path: str, encoding: str = "utf-8") -> tuple[pd.DataFrame, dict, list[dict]]:
     df, meta = pyreadstat.read_sav(path, apply_value_formats=False, encoding=encoding)
+    df = _trim_string_columns(df)
     file_meta, variables = _spss_like_variables(df, meta, path)
     return df, file_meta, variables
 
 
 def read_sas(path: str, encoding: str = "utf-8") -> tuple[pd.DataFrame, dict, list[dict]]:
     df, meta = pyreadstat.read_sas7bdat(path, encoding=encoding)
+    df = _trim_string_columns(df)
     file_meta, variables = _spss_like_variables(df, meta, path)
     return df, file_meta, variables
 
 
 def read_stata(path: str, encoding: str = "utf-8") -> tuple[pd.DataFrame, dict, list[dict]]:
     df, meta = pyreadstat.read_dta(path, encoding=encoding)
+    df = _trim_string_columns(df)
     file_meta, variables = _spss_like_variables(df, meta, path)
     return df, file_meta, variables
 
@@ -139,6 +159,7 @@ def read_csv(
         encoding=encoding,
         header=header,
     )
+    df = _trim_string_columns(df)
     if no_header:
         df.columns = [f"col_{i}" for i in range(len(df.columns))]
     file_meta, variables = _generic_variables(df, path)
@@ -154,6 +175,7 @@ def read_excel(
     if isinstance(sheet, str) and sheet.isdigit():
         sheet = int(sheet)
     df = pd.read_excel(path, sheet_name=sheet)
+    df = _trim_string_columns(df)
     sheet_name = sheet if isinstance(sheet, str) else str(sheet)
     file_meta, variables = _generic_variables(df, path, extra_meta={"sheet_name": sheet_name})
     return df, file_meta, variables
@@ -161,5 +183,6 @@ def read_excel(
 
 def read_parquet(path: str) -> tuple[pd.DataFrame, dict, list[dict]]:
     df = pd.read_parquet(path)
+    df = _trim_string_columns(df)
     file_meta, variables = _generic_variables(df, path)
     return df, file_meta, variables

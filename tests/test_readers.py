@@ -1,7 +1,9 @@
+from pathlib import Path
+
 import pandas as pd
 import pytest
 
-from metaextract.readers import read_csv, read_excel, read_parquet
+from metaextract.readers import read_csv, read_excel, read_parquet, read_sas
 
 
 class TestReadCSV:
@@ -48,6 +50,13 @@ class TestReadCSV:
         df, _, variables = read_csv(str(p), quotechar="'")
         assert df["a"].iloc[0] == "hello world"
 
+    def test_string_values_are_trimmed(self, tmp_path):
+        p = tmp_path / "trim.csv"
+        p.write_text("name,city\n  Alice  ,  Boston \n")
+        df, _, _ = read_csv(str(p))
+        assert df["name"].iloc[0] == "Alice"
+        assert df["city"].iloc[0] == "Boston"
+
 
 class TestReadExcel:
     def test_default_sheet(self, sample_excel_path):
@@ -84,3 +93,21 @@ class TestReadParquet:
         type_map = {v["name"]: v["type"] for v in variables}
         assert type_map["a"] == "numeric"
         assert type_map["b"] == "string"
+
+
+class TestReadSAS:
+    def test_string_columns_keep_string_type(self):
+        sample_path = Path(__file__).resolve().parents[1] / "sample_files" / "cars.sas7bdat"
+        _, _, variables = read_sas(str(sample_path))
+        type_map = {v["name"]: v["type"] for v in variables}
+
+        assert type_map["make"] == "string"
+        assert type_map["model"] == "string"
+        assert type_map["msrp"] == "numeric"
+
+    def test_string_values_are_trimmed(self):
+        sample_path = Path(__file__).resolve().parents[1] / "sample_files" / "cars.sas7bdat"
+        df, _, _ = read_sas(str(sample_path))
+
+        assert df["Make"].iloc[0] == "Acura"
+        assert df["Model"].iloc[0] == "MDX"
