@@ -60,6 +60,24 @@ class TestComputeFreq:
 
 
 class TestComputeVariableStats:
+    def test_datetime_stats(self):
+        series = pd.to_datetime(pd.Series([
+            "2024-01-01",
+            "2024-01-02",
+            "2024-01-03",
+            "2024-01-03",
+        ]))
+        stats = _compute_variable_stats("created_at", series, "datetime", {}, None)
+        assert stats["stat_type"] == "datetime"
+        assert stats["min"] == "2024-01-01T00:00:00"
+        assert stats["max"] == "2024-01-03T00:00:00"
+        assert stats["mean"] == "2024-01-02T06:00:00"
+        assert stats["median"] == "2024-01-02T12:00:00"
+        assert stats["mode"] == "2024-01-03T00:00:00"
+        assert stats["mode_count"] == 2
+        assert stats["std_seconds"] == pytest.approx(82721.702118)
+        assert "q1" not in stats
+
     def test_continuous_stats(self):
         series = pd.Series([10.0, 20.0, 30.0, 40.0, 50.0])
         stats = _compute_variable_stats("val", series, "numeric", {}, "scale")

@@ -1,5 +1,6 @@
 import math
 import os
+import re
 
 import numpy as np
 import pandas as pd
@@ -19,10 +20,29 @@ SUFFIX_TO_FORMAT = {
     ".parquet": "parquet",
 }
 
+DATETIME_NAME_TOKENS = (
+    "date",
+    "datetime",
+    "time",
+    "timestamp",
+    "dt",
+    "dob",
+    "created",
+    "updated",
+    "modified",
+)
+
+DATETIME_MIN_NON_NULL = 2
+DATETIME_HIGH_PARSE_RATE = 0.80
+DATETIME_NAME_ASSISTED_PARSE_RATE = 0.50
+NUMERIC_STRING_RE = re.compile(r"^[+-]?\d+(?:\.\d+)?$")
+
 
 def _safe(val):
     """Convert numpy/pandas types to JSON-safe Python types."""
-    if val is None or (isinstance(val, float) and math.isnan(val)):
+    if val is None or val is pd.NaT:
+        return None
+    if isinstance(val, (float, np.floating)) and math.isnan(val):
         return None
     if isinstance(val, np.integer):
         return int(val)
@@ -30,8 +50,8 @@ def _safe(val):
         return round(float(val), 6)
     if isinstance(val, np.bool_):
         return bool(val)
-    if isinstance(val, pd.Timestamp):
-        return str(val)
+    if isinstance(val, (pd.Timestamp, np.datetime64)):
+        return to_iso8601(val)
     return val
 
 
@@ -62,12 +82,73 @@ def infer_pandas_type(dtype) -> str:
     return "string"
 
 
+def to_iso8601(val):
+    """Convert datetime-like values to ISO-8601 strings."""
+    if val is None or val is pd.NaT:
+        return None
+    ts = pd.Timestamp(val)
+    if pd.isna(ts):
+        return None
+    return ts.isoformat()
+
+
+def looks_like_datetime_name(name: str) -> bool:
+    """Return True when a column name strongly suggests temporal data."""
+    normalized = re.sub(r"[^a-z0-9]+", "_", str(name).lower()).strip("_")
+    if not normalized:
+        return False
+    parts = [part for part in normalized.split("_") if part]
+    if any(part in DATETIME_NAME_TOKENS for part in parts):
+        return True
+    return any(token in normalized for token in DATETIME_NAME_TOKENS if len(token) > 2)
+
+
+def detect_datetime_series(series: pd.Series, col_name: str) -> pd.Series | None:
+    """Heuristically detect date/time columns and return parsed values when found."""
+    if not (
+        pd.api.types.is_string_dtype(series.dtype)
+        or pd.api.types.is_object_dtype(series.dtype)
+    ):
+        return None
+
+    non_null = series.dropna()
+    if len(non_null) < DATETIME_MIN_NON_NULL:
+        return None
+    if not non_null.map(lambda val: isinstance(val, str)).all():
+        return None
+
+    has_datetime_name = looks_like_datetime_name(col_name)
+    if not has_datetime_name and non_null.map(lambda val: bool(NUMERIC_STRING_RE.fullmatch(val))).all():
+        return None
+
+    try:
+        parsed = pd.to_datetime(non_null, errors="coerce", format="mixed")
+    except TypeError:
+        parsed = pd.to_datetime(non_null, errors="coerce")
+    parse_rate = float(parsed.notna().mean())
+    if parse_rate >= DATETIME_HIGH_PARSE_RATE:
+        try:
+            result = pd.to_datetime(series, errors="coerce", format="mixed")
+        except TypeError:
+            result = pd.to_datetime(series, errors="coerce")
+        return result
+
+    if has_datetime_name and parse_rate >= DATETIME_NAME_ASSISTED_PARSE_RATE:
+        try:
+            result = pd.to_datetime(series, errors="coerce", format="mixed")
+        except TypeError:
+            result = pd.to_datetime(series, errors="coerce")
+        return result
+
+    return None
+
+
 def file_timestamps(path: str) -> tuple[str, str]:
     """Return (creation_time_str, modification_time_str) for a file path."""
     stat = os.stat(path)
-    mtime = str(pd.Timestamp(stat.st_mtime, unit="s"))
+    mtime = to_iso8601(pd.Timestamp(stat.st_mtime, unit="s"))
     try:
-        ctime = str(pd.Timestamp(stat.st_birthtime, unit="s"))
+        ctime = to_iso8601(pd.Timestamp(stat.st_birthtime, unit="s"))
     except AttributeError:
-        ctime = str(pd.Timestamp(stat.st_ctime, unit="s"))
+        ctime = to_iso8601(pd.Timestamp(stat.st_ctime, unit="s"))
     return ctime, mtime

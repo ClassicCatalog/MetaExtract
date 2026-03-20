@@ -57,6 +57,33 @@ class TestReadCSV:
         assert df["name"].iloc[0] == "Alice"
         assert df["city"].iloc[0] == "Boston"
 
+    def test_date_named_column_becomes_datetime(self, tmp_path):
+        p = tmp_path / "dates.csv"
+        p.write_text("created_at,name\n2024-01-01,Alice\n2024-01-02,Bob\n")
+        _, _, variables = read_csv(str(p))
+        type_map = {v["name"]: v["type"] for v in variables}
+        assert type_map["created_at"] == "datetime"
+        assert type_map["name"] == "string"
+
+    def test_content_only_date_column_becomes_datetime(self, tmp_path):
+        p = tmp_path / "events.csv"
+        p.write_text("event_value,name\n2024-01-01,Alice\n2024-01-02,Bob\n")
+        _, _, variables = read_csv(str(p))
+        type_map = {v["name"]: v["type"] for v in variables}
+        assert type_map["event_value"] == "datetime"
+
+    def test_mixed_string_column_stays_string(self, tmp_path):
+        p = tmp_path / "mixed.csv"
+        p.write_text("created_at\n2024-01-01\nnot-a-date\nstill-not-a-date\n")
+        _, _, variables = read_csv(str(p))
+        assert variables[0]["type"] == "string"
+
+    def test_numeric_identifier_stays_non_datetime(self, tmp_path):
+        p = tmp_path / "ids.csv"
+        p.write_text("identifier\n1001\n1002\n1003\n")
+        _, _, variables = read_csv(str(p))
+        assert variables[0]["type"] == "numeric"
+
     def test_qualtrics_reader_skips_label_row(self, qualtrics_csv_path):
         df, file_meta, variables = read_qualtrics_csv(str(qualtrics_csv_path))
         assert len(df) == 2

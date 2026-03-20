@@ -3,7 +3,14 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from metaextract.utils import _safe, _format_value_labels, infer_pandas_type
+from metaextract.utils import (
+    _safe,
+    _format_value_labels,
+    detect_datetime_series,
+    infer_pandas_type,
+    looks_like_datetime_name,
+    to_iso8601,
+)
 
 
 class TestSafe:
@@ -32,7 +39,7 @@ class TestSafe:
         ts = pd.Timestamp("2024-01-15")
         val = _safe(ts)
         assert isinstance(val, str)
-        assert "2024-01-15" in val
+        assert val == "2024-01-15T00:00:00"
 
     def test_regular_string(self):
         assert _safe("hello") == "hello"
@@ -79,3 +86,30 @@ class TestInferPandasType:
         import numpy as np
         bool_dtype = np.dtype("bool")
         assert infer_pandas_type(bool_dtype) == "boolean"
+
+
+class TestDatetimeHelpers:
+    def test_to_iso8601_timestamp(self):
+        assert to_iso8601(pd.Timestamp("2024-05-01 13:45:00")) == "2024-05-01T13:45:00"
+
+    def test_looks_like_datetime_name(self):
+        assert looks_like_datetime_name("created_at") is True
+        assert looks_like_datetime_name("eventDate") is True
+        assert looks_like_datetime_name("customer_id") is False
+
+    def test_detect_datetime_series_with_name_assist(self):
+        series = pd.Series(["2024-01-01", "2024-01-02", "not-a-date", None])
+        parsed = detect_datetime_series(series, "created_at")
+        assert parsed is not None
+        assert pd.api.types.is_datetime64_any_dtype(parsed.dtype)
+
+    def test_detect_datetime_series_by_content(self):
+        series = pd.Series(["2024-01-01", "2024-01-02", "2024-01-03"])
+        parsed = detect_datetime_series(series, "event_value")
+        assert parsed is not None
+        assert pd.api.types.is_datetime64_any_dtype(parsed.dtype)
+
+    def test_detect_datetime_series_rejects_numeric_ids(self):
+        series = pd.Series(["1001", "1002", "1003"])
+        parsed = detect_datetime_series(series, "identifier")
+        assert parsed is None

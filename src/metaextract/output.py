@@ -30,6 +30,9 @@ def _build_dataset_summary(
         "continuous_variable_count": sum(
             1 for s in variable_stats if s.get("stat_type") == "continuous"
         ),
+        "datetime_variable_count": sum(
+            1 for s in variable_stats if s.get("stat_type") == "datetime"
+        ),
         "categorical_variable_count": sum(
             1 for s in variable_stats if s.get("stat_type") == "categorical"
         ),
@@ -77,6 +80,7 @@ def build_csv_output(file_meta: dict, variables: list[dict]) -> str:
         "percent_missing", "unique_count", "has_data", "mean", "median", "std",
         "variance", "min", "max", "range", "sum", "q1", "q3", "iqr", "p5", "p10",
         "p90", "p95", "skewness", "kurtosis", "sem", "cv", "mode", "mode_count",
+        "std_seconds",
         "min_length", "max_length", "mean_length",
     ]
 

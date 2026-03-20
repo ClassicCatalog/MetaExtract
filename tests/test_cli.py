@@ -154,6 +154,21 @@ class TestCLIDataPreview:
         data = json.loads(result.output)
         assert data["data_preview"]["tail"] == []
 
+    def test_detected_datetime_preview_is_iso8601(self, runner, tmp_path):
+        p = tmp_path / "dates.csv"
+        p.write_text(
+            "created_at,name\n"
+            "2024-01-01 10:15:00,Alice\n"
+            "2024-01-02 08:30:00,Bob\n"
+            ",Cara\n"
+        )
+        result = runner.invoke(main, [str(p), "--head", "2", "--no-stats"])
+        assert result.exit_code == 0, result.output
+        data = json.loads(result.output)
+        head = data["data_preview"]["head"]
+        assert head[0]["created_at"] == "2024-01-01T10:15:00"
+        assert head[1]["created_at"] == "2024-01-02T08:30:00"
+
     def test_negative_head_rejected(self, runner, sample_csv_path):
         result = runner.invoke(main, [str(sample_csv_path), "--head", "-1"])
         assert result.exit_code != 0
@@ -201,6 +216,14 @@ class TestCLIDataOnly:
         assert result.exit_code == 0, result.output
         data = json.loads(result.output)
         assert not any(k in data for k in ("variables", "dataset_summary", "source_file"))
+
+    def test_data_only_detected_datetime_is_iso8601(self, runner, tmp_path):
+        p = tmp_path / "dates.csv"
+        p.write_text("created_at\n2024-01-01 10:15:00\n2024-01-02 12:00:00\n")
+        result = runner.invoke(main, [str(p), "--head", "1", "--data-only", "--no-stats"])
+        assert result.exit_code == 0, result.output
+        data = json.loads(result.output)
+        assert data[0]["created_at"] == "2024-01-01T10:15:00"
 
 
 class TestCLIQualtricsStats:

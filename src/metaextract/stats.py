@@ -79,7 +79,9 @@ def _compute_variable_stats(
     n_unique = int(series.nunique())
     is_cat = _is_categorical(var_type, measure, value_labels)
 
-    if var_type == "string":
+    if var_type == "datetime":
+        stat_type = "datetime"
+    elif var_type == "string":
         stat_type = "string"
     elif is_cat:
         stat_type = "categorical"
@@ -104,7 +106,22 @@ def _compute_variable_stats(
 
     stats["has_data"] = True
 
-    if stat_type == "continuous":
+    if stat_type == "datetime":
+        valid = pd.to_datetime(series, errors="coerce").dropna()
+        if len(valid) > 0:
+            stats["min"] = _safe(valid.min())
+            stats["max"] = _safe(valid.max())
+            stats["mean"] = _safe(valid.mean())
+            stats["median"] = _safe(valid.median())
+            centered_seconds = (valid - valid.mean()).dt.total_seconds()
+            stats["std_seconds"] = _safe(centered_seconds.std())
+
+            mode_vals = valid.mode()
+            if len(mode_vals) > 0:
+                stats["mode"] = _safe(mode_vals.iloc[0])
+                stats["mode_count"] = int((valid == mode_vals.iloc[0]).sum())
+
+    elif stat_type == "continuous":
         col = pd.to_numeric(series, errors="coerce")
         valid = col.dropna()
         if len(valid) > 0:

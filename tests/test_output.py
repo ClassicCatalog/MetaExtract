@@ -116,9 +116,11 @@ class TestBuildDatasetSummary:
         summary = _build_dataset_summary(sample_file_meta, variables_with_stats, stats_computed=True)
         total = (
             summary["continuous_variable_count"]
+            + summary["datetime_variable_count"]
             + summary["categorical_variable_count"]
             + summary["string_variable_count"]
         )
         # At least some categories should be populated
         assert total >= 0
         assert summary["total_variables"] == 5
+        assert summary["datetime_variable_count"] == 1

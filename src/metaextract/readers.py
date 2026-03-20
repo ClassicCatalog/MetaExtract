@@ -4,7 +4,12 @@ import re
 import pandas as pd
 import pyreadstat
 
-from metaextract.utils import _format_value_labels, infer_pandas_type, file_timestamps
+from metaextract.utils import (
+    _format_value_labels,
+    detect_datetime_series,
+    file_timestamps,
+    infer_pandas_type,
+)
 
 
 def _trim_string_columns(df: pd.DataFrame) -> pd.DataFrame:
@@ -16,6 +21,15 @@ def _trim_string_columns(df: pd.DataFrame) -> pd.DataFrame:
                 continue
             if non_null.map(lambda val: isinstance(val, str)).all():
                 df[col] = df[col].str.strip()
+    return df
+
+
+def _coerce_datetime_like_columns(df: pd.DataFrame) -> pd.DataFrame:
+    """Parse string/object columns that confidently look like datetimes."""
+    for col in df.columns:
+        parsed = detect_datetime_series(df[col], str(col))
+        if parsed is not None:
+            df[col] = parsed
     return df
 
 
@@ -161,6 +175,7 @@ def read_csv(
         header=header,
     )
     df = _trim_string_columns(df)
+    df = _coerce_datetime_like_columns(df)
     if no_header:
         df.columns = [f"col_{i}" for i in range(len(df.columns))]
     file_meta, variables = _generic_variables(df, path)
@@ -193,6 +208,7 @@ def read_qualtrics_csv(
         skiprows=[1],
     )
     df = _trim_string_columns(df)
+    df = _coerce_datetime_like_columns(df)
 
     file_meta, variables = _generic_variables(
         df,
@@ -220,6 +236,7 @@ def read_excel(
         sheet = int(sheet)
     df = pd.read_excel(path, sheet_name=sheet)
     df = _trim_string_columns(df)
+    df = _coerce_datetime_like_columns(df)
     sheet_name = sheet if isinstance(sheet, str) else str(sheet)
     file_meta, variables = _generic_variables(df, path, extra_meta={"sheet_name": sheet_name})
     return df, file_meta, variables
@@ -228,5 +245,6 @@ def read_excel(
 def read_parquet(path: str) -> tuple[pd.DataFrame, dict, list[dict]]:
     df = pd.read_parquet(path)
     df = _trim_string_columns(df)
+    df = _coerce_datetime_like_columns(df)
     file_meta, variables = _generic_variables(df, path)
     return df, file_meta, variables
