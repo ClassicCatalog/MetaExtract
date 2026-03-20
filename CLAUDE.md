@@ -2,6 +2,9 @@
 
 CLI metadata extraction tool for data files (CSV, SPSS, SAS, Stata, Excel, Parquet).
 
+Python Version: 3.12 +
+Virtual Environment: venv
+
 ## Setup
 
 ```bash
