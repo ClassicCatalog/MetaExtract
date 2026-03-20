@@ -6,6 +6,7 @@ build-backend = "hatchling.build"
 name = "metaextract"
 version = "0.1.0"
 description = "CLI metadata extraction tool for SPSS, SAS, Stata, CSV, Excel, and Parquet files"
+license = {file = "LICENSE"}
 requires-python = ">=3.12"
 dependencies = [
     "rich-click",
