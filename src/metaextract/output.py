@@ -5,6 +5,13 @@ import json
 from metaextract.utils import _safe
 
 
+def _sanitize_csv_cell(value):
+    """Escape spreadsheet formulas in string cells."""
+    if isinstance(value, str) and value[:1] in ("=", "+", "-", "@"):
+        return f"'{value}"
+    return value
+
+
 def _build_dataset_summary(
     file_meta: dict,
     variables: list[dict],
@@ -100,6 +107,7 @@ def build_csv_output(file_meta: dict, variables: list[dict]) -> str:
         stats = v.get("stats") or {}
         for f in SCALAR_STAT_FIELDS:
             row[f"stat_{f}"] = _safe(stats.get(f))
+        row = {key: _sanitize_csv_cell(val) for key, val in row.items()}
         writer.writerow(row)
 
     return buf.getvalue()

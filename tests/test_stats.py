@@ -47,12 +47,11 @@ class TestComputeFreq:
     def test_zero_count_key(self):
         col = pd.Series([1.0, 1.0])
         labels = {1.0: "Yes", 2.0: "No"}
-        result = _compute_freq(col, labels, non_null=2)
+        result = _compute_freq(col, labels, non_null=3)
         assert result["2.0"]["count"] == 0
 
-    def test_snapping(self):
-        # Values slightly off from label keys should snap
-        col = pd.Series([0.9, 2.1])
+    def test_out_of_domain_values_are_not_reassigned(self):
+        col = pd.Series([1.0, 2.0, 999.0])
         labels = {1.0: "Low", 2.0: "High"}
         result = _compute_freq(col, labels, non_null=2)
         assert result["1.0"]["count"] == 1
@@ -95,6 +94,13 @@ class TestComputeVariableStats:
         stats = _compute_variable_stats("cat", series, "numeric", labels, "nominal")
         assert stats["stat_type"] == "categorical"
         assert "value_frequencies" in stats
+
+    def test_nominal_string_path_uses_categorical_stats(self):
+        series = pd.Series(["F", "M", "F"])
+        stats = _compute_variable_stats("gender", series, "string", {}, "nominal")
+        assert stats["stat_type"] == "categorical"
+        assert stats["value_frequencies"]["F"]["count"] == 2
+        assert "top_values" not in stats
 
     def test_string_path(self):
         series = pd.Series(["apple", "banana", "apple", "cherry"])

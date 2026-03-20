@@ -20,6 +20,13 @@ def _slice_to_rows(slice_df, col_name_map):
     return rows
 
 
+def _build_col_name_map(variables: list[dict]) -> dict:
+    col_name_map = {v["_raw_col_name"]: v["name"] for v in variables}
+    if len(col_name_map) != len(variables) or len(set(col_name_map.values())) != len(variables):
+        raise click.ClickException("Variable name mapping is inconsistent; duplicate output names detected.")
+    return col_name_map
+
+
 @click.command()
 @click.argument("input_file", type=click.Path(exists=True, dir_okay=False))
 @click.option("-f", "--input-format",
@@ -50,7 +57,7 @@ def _slice_to_rows(slice_df, col_name_map):
 @click.option("--tail", "tail", default=None, type=click.IntRange(min=0),
               help="Include the last N rows of data in JSON output.")
 @click.option("--data-only", is_flag=True, default=False,
-              help="Output only the data rows (requires --head and/or --tail).")
+              help="Output only the data rows in JSON output (requires --head and/or --tail).")
 def main(
     input_file,
     input_format,
@@ -89,6 +96,13 @@ def main(
     # TSV auto-delimiter
     if suffix == ".tsv" and delimiter == ",":
         delimiter = "\t"
+
+    # Validate output options before loading data.
+    if data_only:
+        if head is None and tail is None:
+            raise click.UsageError("--data-only requires --head and/or --tail.")
+        if output_format == "csv":
+            raise click.UsageError("--data-only is only supported with JSON output.")
 
     # Dispatch to reader
     try:
@@ -129,15 +143,11 @@ def main(
         cardinality_threshold=cardinality_threshold,
     )
 
-    # Validate --data-only
-    if data_only and head is None and tail is None:
-        raise click.UsageError("--data-only requires --head and/or --tail.")
-
     # Build data preview rows
     if output_format == "csv" and (head is not None or tail is not None):
         click.echo("Warning: --head/--tail is not supported for CSV output and will be ignored.", err=True)
 
-    col_name_map = {v["_raw_col_name"]: v["name"] for v in variables}
+    col_name_map = _build_col_name_map(variables)
     head_rows = _slice_to_rows(df.head(head), col_name_map) if head is not None else None
     tail_rows = _slice_to_rows(df.tail(tail), col_name_map) if tail is not None else None
 

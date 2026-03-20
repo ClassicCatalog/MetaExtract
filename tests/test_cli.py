@@ -148,6 +148,17 @@ class TestCLIDataPreview:
         assert "name" in row
         assert "score" in row
 
+    def test_case_colliding_headers_preserve_both_preview_columns(self, runner, tmp_path):
+        p = tmp_path / "case_collision.csv"
+        p.write_text("ID,id\n1,2\n")
+        result = runner.invoke(main, [str(p), "--head", "1", "--no-stats"])
+        assert result.exit_code == 0, result.output
+        data = json.loads(result.output)
+        assert [v["name"] for v in data["variables"]] == ["id", "id__2"]
+        row = data["data_preview"]["head"][0]
+        assert row["id"] == 1
+        assert row["id__2"] == 2
+
     def test_tail_zero_returns_empty(self, runner, sample_csv_path):
         result = runner.invoke(main, [str(sample_csv_path), "--tail", "0"])
         assert result.exit_code == 0, result.output
@@ -224,6 +235,19 @@ class TestCLIDataOnly:
         assert result.exit_code == 0, result.output
         data = json.loads(result.output)
         assert data[0]["created_at"] == "2024-01-01T10:15:00"
+
+    def test_data_only_case_colliding_headers_preserve_both_columns(self, runner, tmp_path):
+        p = tmp_path / "case_collision.csv"
+        p.write_text("ID,id\n1,2\n")
+        result = runner.invoke(main, [str(p), "--head", "1", "--data-only", "--no-stats"])
+        assert result.exit_code == 0, result.output
+        data = json.loads(result.output)
+        assert data[0] == {"id": 1, "id__2": 2}
+
+    def test_data_only_with_csv_output_errors(self, runner, sample_csv_path):
+        result = runner.invoke(main, [str(sample_csv_path), "--output-format", "csv", "--head", "1", "--data-only"])
+        assert result.exit_code != 0
+        assert "json output" in result.output.lower()
 
 
 class TestCLIQualtricsStats:

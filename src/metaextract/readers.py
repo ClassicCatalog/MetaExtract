@@ -1,5 +1,6 @@
 import csv
 import re
+from collections import Counter
 
 import pandas as pd
 import pyreadstat
@@ -10,6 +11,28 @@ from metaextract.utils import (
     file_timestamps,
     infer_pandas_type,
 )
+
+
+def _assign_public_names(variables: list[dict]) -> list[dict]:
+    """Assign unique lowercased public names while preserving raw column names."""
+    name_counts = Counter()
+    assigned_names = set()
+
+    for variable in variables:
+        base_name = str(variable["_raw_col_name"]).lower()
+        name_counts[base_name] += 1
+        candidate = base_name
+
+        if name_counts[base_name] > 1:
+            candidate = f"{base_name}__{name_counts[base_name]}"
+
+        if candidate in assigned_names:
+            raise ValueError(f"Could not assign unique output name for column '{variable['_raw_col_name']}'.")
+
+        variable["name"] = candidate
+        assigned_names.add(candidate)
+
+    return variables
 
 
 def _trim_string_columns(df: pd.DataFrame) -> pd.DataFrame:
@@ -87,7 +110,7 @@ def _spss_like_variables(df: pd.DataFrame, meta, path: str) -> tuple[dict, list[
             raw_fmt = meta.original_variable_types.get(var)
         value_labels = meta.variable_value_labels.get(var, {})
         variables.append({
-            "name": var.lower(),
+            "name": str(var).lower(),
             "_raw_col_name": var,
             "label": (meta.column_labels[meta.column_names.index(var)]
                       if meta.column_labels else None),
@@ -101,6 +124,7 @@ def _spss_like_variables(df: pd.DataFrame, meta, path: str) -> tuple[dict, list[
             "_raw_value_labels": value_labels,
         })
 
+    _assign_public_names(variables)
     return file_meta, variables
 
 
@@ -156,6 +180,7 @@ def _generic_variables(df: pd.DataFrame, path: str, extra_meta: dict | None = No
             "_raw_value_labels": {},
         })
 
+    _assign_public_names(variables)
     return file_meta, variables
 
 

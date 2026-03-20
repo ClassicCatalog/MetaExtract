@@ -1,4 +1,3 @@
-import numpy as np
 import pandas as pd
 
 from metaextract.utils import (
@@ -28,6 +27,30 @@ def _is_categorical(var_type: str, measure: str, value_labels: dict) -> bool:
     return bool(value_labels)
 
 
+def _classify_stat_type(
+    var_name: str,
+    series: pd.Series,
+    var_type: str,
+    measure: str,
+    value_labels: dict,
+    cardinality_threshold: int,
+) -> str:
+    """Choose the semantic statistics path independently of storage type."""
+    total = len(series)
+    n_unique = int(series.nunique())
+    is_cat = _is_categorical(var_type, measure, value_labels)
+
+    if var_type == "datetime":
+        return "datetime"
+    if is_cat:
+        return "categorical"
+    if var_type == "string":
+        return "string"
+    if measure != "scale" and _is_discrete(var_name, n_unique, total, cardinality_threshold):
+        return "discrete"
+    return "continuous"
+
+
 def _is_discrete(name: str, n_unique: int, total: int, threshold: int) -> bool:
     """Detect numeric variables that are better reported as discrete (frequency-based).
 
@@ -45,21 +68,44 @@ def _is_discrete(name: str, n_unique: int, total: int, threshold: int) -> bool:
     return False
 
 
-def _compute_freq(col: pd.Series, value_labels: dict, non_null: int) -> dict:
-    """Snap values to nearest label key and compute frequency distribution."""
-    label_keys = np.array(sorted(value_labels.keys()), dtype=float)
-    snapped = col.dropna().apply(
-        lambda x: label_keys[np.argmin(np.abs(label_keys - x))]
+def _normalize_comparable_value(value):
+    """Normalize values so label keys and observed values compare consistently."""
+    safe_value = _safe(value)
+    if safe_value is None:
+        return None
+    return str(safe_value)
+
+
+def _compute_freq(series: pd.Series, value_labels: dict, non_null: int) -> dict:
+    """Compute exact-match frequency distribution for labeled values."""
+    normalized_counts = (
+        series.dropna()
+        .map(_normalize_comparable_value)
+        .value_counts()
     )
+
     freq = {}
-    for val in label_keys:
-        count = int((snapped == val).sum())
-        freq[str(val)] = {
-            "label": value_labels[val],
+    for raw_key, label in value_labels.items():
+        normalized_key = _normalize_comparable_value(raw_key)
+        count = int(normalized_counts.get(normalized_key, 0))
+        freq[str(raw_key)] = {
+            "label": label,
             "count": count,
             "percent": round(count / non_null * 100, 2) if non_null > 0 else 0.0,
         }
     return freq
+
+
+def _build_raw_frequency_stats(series: pd.Series, non_null: int) -> dict:
+    valid = series.dropna()
+    value_counts = valid.value_counts().sort_index()
+    return {
+        str(_safe(val)): {
+            "count": int(cnt),
+            "percent": round(cnt / non_null * 100, 2),
+        }
+        for val, cnt in value_counts.items()
+    }
 
 
 def _compute_variable_stats(
@@ -77,18 +123,14 @@ def _compute_variable_stats(
     n_missing = total - non_null
     pct_missing = round(n_missing / total * 100, 2) if total > 0 else 0.0
     n_unique = int(series.nunique())
-    is_cat = _is_categorical(var_type, measure, value_labels)
-
-    if var_type == "datetime":
-        stat_type = "datetime"
-    elif var_type == "string":
-        stat_type = "string"
-    elif is_cat:
-        stat_type = "categorical"
-    elif measure != "scale" and _is_discrete(var, n_unique, total, cardinality_threshold):
-        stat_type = "discrete"
-    else:
-        stat_type = "continuous"
+    stat_type = _classify_stat_type(
+        var,
+        series,
+        var_type,
+        measure,
+        value_labels,
+        cardinality_threshold,
+    )
 
     stats = {
         "stat_type": stat_type,
@@ -157,34 +199,18 @@ def _compute_variable_stats(
                 stats["mode_count"] = int((valid == mode_vals.iloc[0]).sum())
 
             if value_labels:
-                stats["value_frequencies"] = _compute_freq(col, value_labels, non_null)
+                stats["value_frequencies"] = _compute_freq(series, value_labels, non_null)
 
     elif stat_type == "categorical":
-        col = pd.to_numeric(series, errors="coerce")
         if value_labels:
-            stats["value_frequencies"] = _compute_freq(col, value_labels, non_null)
+            stats["value_frequencies"] = _compute_freq(series, value_labels, non_null)
         else:
-            valid = col.dropna()
-            value_counts = valid.value_counts().sort_index()
-            stats["value_frequencies"] = {
-                str(val): {
-                    "count": int(cnt),
-                    "percent": round(cnt / non_null * 100, 2),
-                }
-                for val, cnt in value_counts.items()
-            }
+            stats["value_frequencies"] = _build_raw_frequency_stats(series, non_null)
 
     elif stat_type == "discrete":
         col = pd.to_numeric(series, errors="coerce")
         valid = col.dropna()
-        value_counts = valid.value_counts().sort_index()
-        stats["value_frequencies"] = {
-            str(val): {
-                "count": int(cnt),
-                "percent": round(cnt / non_null * 100, 2),
-            }
-            for val, cnt in value_counts.items()
-        }
+        stats["value_frequencies"] = _build_raw_frequency_stats(valid, non_null)
         stats["min"] = _safe(valid.min())
         stats["max"] = _safe(valid.max())
 

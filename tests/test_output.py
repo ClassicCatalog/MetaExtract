@@ -69,6 +69,25 @@ class TestBuildCSVOutput:
         rows = list(reader)
         assert len(rows) == 5
 
+    def test_formula_like_cells_are_escaped(self, sample_file_meta):
+        variables = [{
+            "name": "=SUM(1,1)",
+            "label": "+cmd",
+            "type": "string",
+            "format": None,
+            "width": None,
+            "decimals": None,
+            "measure": None,
+            "missing_values": "@missing",
+            "values": {"@x": "-danger"},
+            "stats": None,
+        }]
+        text = build_csv_output(sample_file_meta, variables)
+        row = next(csv.DictReader(io.StringIO(text)))
+        assert row["name"] == "'=SUM(1,1)"
+        assert row["label"] == "'+cmd"
+        assert row["missing_values"] == "'@missing"
+
 
 class TestBuildJsonOutputDataPreview:
     def test_no_preview_by_default(self, sample_file_meta, variables_with_stats):

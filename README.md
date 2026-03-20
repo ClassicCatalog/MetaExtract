@@ -97,7 +97,7 @@ The format is inferred from the file suffix. Use `-f` to override.
 | `--no-stats` | off | Skip summary statistics |
 | `--head INTEGER` | off | Include the first N rows of data in JSON output |
 | `--tail INTEGER` | off | Include the last N rows of data in JSON output |
-| `--data-only` | off | Output only the data rows; omits metadata (requires `--head`/`--tail`) |
+| `--data-only` | off | Output only the data rows in JSON output; omits metadata (requires `--head`/`--tail`) |
 
 TSV files (`.tsv`) automatically use `\t` as the delimiter.
 
@@ -172,7 +172,7 @@ The preview appears at the end of the JSON output:
 
 Row keys are always lowercased to match variable names in the `variables` list. If N exceeds the number of rows in the file, all rows are returned. `--head`/`--tail` are ignored when `--output-format csv` is used (a warning is printed to stderr).
 
-Add `--data-only` to strip all metadata and return just the rows. With only `--head` or only `--tail`, the output is a flat JSON array. With both, it is `{"head": [...], "tail": [...]}`. `--data-only` requires at least one of `--head`/`--tail`.
+Add `--data-only` to strip all metadata and return just the rows in JSON output. With only `--head` or only `--tail`, the output is a flat JSON array. With both, it is `{"head": [...], "tail": [...]}`. `--data-only` requires at least one of `--head`/`--tail` and is not supported with `--output-format csv`.
 
 ## Output
 
@@ -227,6 +227,8 @@ All output is a single file (JSON default, or flat CSV with `--output-format csv
 
 One row per variable. Scalar stat fields are prefixed `stat_`. Nested structures (e.g. `value_frequencies`) are omitted.
 
+String cells that begin with `=`, `+`, `-`, or `@` are escaped in CSV output to reduce spreadsheet formula-injection risk.
+
 ## Supported Formats
 
 | Format | Extensions | Reader |
@@ -270,13 +272,3 @@ To view an HTML report:
 ```bash
 pytest tests/ --cov-report=html && open htmlcov/index.html
 ```
-
-Current coverage: **82% overall** (67 tests).
-
-| Module | Coverage | Notes |
-|---|---|---|
-| `stats.py` | 99% | |
-| `output.py` | 97% | |
-| `utils.py` | 95% | `st_birthtime` fallback (non-macOS only) |
-| `cli.py` | 76% | SPSS/SAS/Stata branches, file output path |
-| `readers.py` | 47% | SPSS, SAS, Stata readers require binary fixture files |

@@ -84,6 +84,12 @@ class TestReadCSV:
         _, _, variables = read_csv(str(p))
         assert variables[0]["type"] == "numeric"
 
+    def test_case_colliding_headers_get_unique_names(self, tmp_path):
+        p = tmp_path / "case_collision.csv"
+        p.write_text("ID,id,Id\n1,2,3\n")
+        _, _, variables = read_csv(str(p))
+        assert [v["name"] for v in variables] == ["id", "id__2", "id__3"]
+
     def test_qualtrics_reader_skips_label_row(self, qualtrics_csv_path):
         df, file_meta, variables = read_qualtrics_csv(str(qualtrics_csv_path))
         assert len(df) == 2
