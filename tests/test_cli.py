@@ -256,9 +256,9 @@ class TestCLIQualtricsStats:
         assert result.exit_code == 0, result.output
         data = json.loads(result.output)
         qid1 = next(v for v in data["variables"] if v["name"] == "qid1")
-        top_values = qid1["stats"]["top_values"]
-        assert all(item["value"] != "How satisfied are you?" for item in top_values)
-        assert {item["value"] for item in top_values} == {"Very satisfied", "Neutral"}
+        value_frequencies = qid1["stats"]["value_frequencies"]
+        assert "How satisfied are you?" not in value_frequencies
+        assert set(value_frequencies) == {"Very satisfied", "Neutral"}
 
 
 class TestCLIDebugAndMaxRows:

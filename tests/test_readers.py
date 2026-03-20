@@ -22,7 +22,7 @@ class TestReadCSV:
         assert file_meta["number_rows"] == 3
         assert file_meta["number_columns"] == 3
         assert variables[0]["measure"] == "nominal"
-        assert variables[1]["measure"] is None
+        assert variables[1]["measure"] == "nominal"
         assert variables[2]["measure"] == "scale"
         assert variables[0]["width"] == 1
         assert variables[2]["decimals"] == 1
@@ -147,7 +147,7 @@ class TestReadExcel:
         by_name = {v["name"]: v for v in variables}
 
         assert by_name["id"]["measure"] == "nominal"
-        assert by_name["name"]["measure"] is None
+        assert by_name["name"]["measure"] == "nominal"
         assert by_name["score"]["measure"] == "scale"
         assert by_name["score"]["width"] == 4
         assert by_name["score"]["decimals"] == 1

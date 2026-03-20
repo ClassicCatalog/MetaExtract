@@ -187,6 +187,9 @@ class TestNullableBooleanDtype:
         stats = result[0]["stats"]
         assert stats["missing_count"] == 1
         assert stats["valid_count"] == 3
+        assert stats["stat_type"] == "categorical"
+        assert stats["value_frequencies"]["True"]["count"] == 2
+        assert stats["value_frequencies"]["False"]["count"] == 1
 
 
 class TestDiscreteStats:

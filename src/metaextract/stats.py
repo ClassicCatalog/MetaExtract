@@ -265,10 +265,9 @@ def compute_all_stats(
         value_labels = var.get("_raw_value_labels") or {}
         measure = var.get("measure") or ""
 
-        # Booleans: treat as nominal categorical
+        # Booleans: treat as nominal categorical while preserving True/False values.
         if pd.api.types.is_bool_dtype(series.dtype):
             measure = "nominal"
-            series = series.map({True: 1, False: 0}).astype("Int64")
 
         if skip_stats:
             var["stats"] = None
