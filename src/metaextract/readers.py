@@ -2,6 +2,7 @@ import csv
 import re
 from collections import Counter
 
+import numpy as np
 import pandas as pd
 import pyreadstat
 
@@ -11,6 +12,15 @@ from metaextract.utils import (
     file_timestamps,
     infer_pandas_type,
 )
+
+IDENTIFIER_NAME_TOKENS = {
+    "id",
+    "ids",
+    "identifier",
+    "identifiers",
+    "code",
+    "codes",
+}
 
 
 def _assign_public_names(variables: list[dict]) -> list[dict]:
@@ -91,6 +101,110 @@ def _parse_spss_format(var_name: str, meta):
     return width, decimals
 
 
+def _normalize_measure(measure: str | None) -> str | None:
+    if measure in (None, "", "unknown"):
+        return None
+    return str(measure)
+
+
+def _looks_like_identifier(var_name: str) -> bool:
+    normalized = re.sub(r"[^a-z0-9]+", "_", str(var_name).lower()).strip("_")
+    parts = [part for part in normalized.split("_") if part]
+    return any(part in IDENTIFIER_NAME_TOKENS for part in parts)
+
+
+def _stringify_observed_value(value) -> str | None:
+    if pd.isna(value):
+        return None
+    if isinstance(value, pd.Timestamp):
+        return value.isoformat()
+    if isinstance(value, (float, np.floating)):
+        return np.format_float_positional(float(value), trim="-")
+    if isinstance(value, (int, np.integer)):
+        return str(int(value))
+    return str(value)
+
+
+def _infer_width(series: pd.Series) -> int | None:
+    observed = []
+    for value in series.tolist():
+        text = _stringify_observed_value(value)
+        if text is not None:
+            observed.append(text)
+    if not observed:
+        return None
+    return max(len(text) for text in observed)
+
+
+def _infer_decimals(series: pd.Series, var_type: str) -> int | None:
+    if var_type != "numeric":
+        return None
+
+    numeric = pd.to_numeric(series, errors="coerce").dropna()
+    if numeric.empty:
+        return None
+
+    max_decimals = 0
+    for value in numeric:
+        rendered = np.format_float_positional(float(value), trim="-")
+        if "." in rendered:
+            max_decimals = max(max_decimals, len(rendered.split(".")[-1]))
+    return max_decimals
+
+
+def _infer_measure(
+    var_name: str,
+    series: pd.Series,
+    var_type: str,
+    measure: str | None,
+    *,
+    infer_string_nominal: bool = False,
+) -> str | None:
+    normalized_measure = _normalize_measure(measure)
+    if normalized_measure:
+        return normalized_measure
+
+    if var_type == "string":
+        return "nominal" if infer_string_nominal else None
+    if var_type == "boolean":
+        return "nominal"
+    if var_type == "datetime":
+        return "scale"
+    if var_type != "numeric":
+        return None
+
+    numeric = pd.to_numeric(series, errors="coerce").dropna()
+    if _looks_like_identifier(var_name):
+        return "nominal"
+    if numeric.empty:
+        return "scale"
+
+    unique_values = set(numeric.unique().tolist())
+    if unique_values.issubset({0, 1}):
+        return "nominal"
+    return "scale"
+
+
+def _resolve_width(
+    series: pd.Series,
+    meta,
+    var_name: str,
+) -> int | None:
+    width, _ = _parse_spss_format(var_name, meta)
+    if width is not None:
+        return width
+
+    display_width = getattr(meta, "variable_display_width", {}).get(var_name)
+    if display_width and display_width > 0:
+        return int(display_width)
+
+    storage_width = getattr(meta, "variable_storage_width", {}).get(var_name)
+    if storage_width and storage_width > 0:
+        return int(storage_width)
+
+    return _infer_width(series)
+
+
 def _spss_like_variables(df: pd.DataFrame, meta, path: str) -> tuple[dict, list[dict]]:
     """Shared logic for SPSS/SAS/Stata readers."""
     creation_time, modification_time = file_timestamps(path)
@@ -107,21 +221,31 @@ def _spss_like_variables(df: pd.DataFrame, meta, path: str) -> tuple[dict, list[
 
     variables = []
     for var in meta.column_names:
-        width, decimals = _parse_spss_format(var, meta)
         raw_fmt = None
         if hasattr(meta, "original_variable_types") and meta.original_variable_types:
             raw_fmt = meta.original_variable_types.get(var)
+        var_type = _infer_spss_type(var, meta)
+        width = _resolve_width(df[var], meta, var)
+        _, decimals = _parse_spss_format(var, meta)
+        if decimals is None:
+            decimals = _infer_decimals(df[var], var_type)
         value_labels = meta.variable_value_labels.get(var, {})
         variables.append({
             "name": str(var).lower(),
             "_raw_col_name": var,
             "label": (meta.column_labels[meta.column_names.index(var)]
                       if meta.column_labels else None),
-            "type": _infer_spss_type(var, meta),
+            "type": var_type,
             "format": str(raw_fmt) if raw_fmt else None,
             "width": width,
             "decimals": decimals,
-            "measure": meta.variable_measure.get(var),
+            "measure": _infer_measure(
+                var,
+                df[var],
+                var_type,
+                meta.variable_measure.get(var),
+                infer_string_nominal=True,
+            ),
             "missing_values": meta.missing_ranges.get(var),
             "values": _format_value_labels(value_labels),
             "_raw_value_labels": value_labels,
@@ -169,15 +293,16 @@ def _generic_variables(df: pd.DataFrame, path: str, extra_meta: dict | None = No
 
     variables = []
     for col in df.columns:
+        var_type = infer_pandas_type(df[col].dtype)
         variables.append({
             "name": str(col).lower(),
             "_raw_col_name": col,
             "label": None,
-            "type": infer_pandas_type(df[col].dtype),
+            "type": var_type,
             "format": None,
-            "width": None,
-            "decimals": None,
-            "measure": None,
+            "width": _infer_width(df[col]),
+            "decimals": _infer_decimals(df[col], var_type),
+            "measure": _infer_measure(col, df[col], var_type, None),
             "missing_values": None,
             "values": None,
             "_raw_value_labels": {},

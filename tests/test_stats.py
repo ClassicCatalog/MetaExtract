@@ -63,6 +63,12 @@ class TestComputeFreq:
         assert result["1.0"]["count"] == 1
         assert result["2.0"]["count"] == 1
 
+    def test_frequency_is_limited_to_top_n(self):
+        col = pd.Series([1, 1, 1, 2, 2, 3])
+        labels = {1: "One", 2: "Two", 3: "Three"}
+        result = _compute_freq(col, labels, non_null=6, top_n=2)
+        assert list(result.keys()) == ["1", "2"]
+
 
 class TestComputeVariableStats:
     def test_datetime_stats(self):
@@ -145,6 +151,11 @@ class TestBuildRawFrequencyStats:
         for val in result.values():
             assert val["percent"] == 0.0
 
+    def test_limits_to_top_n(self):
+        series = pd.Series(["a", "a", "a", "b", "b", "c"])
+        result = _build_raw_frequency_stats(series, non_null=6, top_n=2)
+        assert list(result.keys()) == ["a", "b"]
+
 
 class TestCVEdgeCases:
     def test_cv_absent_when_mean_is_zero(self):
@@ -188,3 +199,8 @@ class TestDiscreteStats:
         series = pd.Series([1, 2, 3, 1, 2, 3, 1, 2, 3])
         stats = _compute_variable_stats("code", series, "numeric", {}, None)
         assert stats["stat_type"] == "discrete"
+
+    def test_discrete_value_frequencies_respect_top_n(self):
+        series = pd.Series([1] * 5 + [2] * 4 + [3] * 3 + [4] * 2)
+        stats = _compute_variable_stats("code", series, "numeric", {}, None, top_n=3)
+        assert list(stats["value_frequencies"].keys()) == ["1", "2", "3"]

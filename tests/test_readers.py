@@ -21,6 +21,11 @@ class TestReadCSV:
         assert variables[0]["name"] == "id"
         assert file_meta["number_rows"] == 3
         assert file_meta["number_columns"] == 3
+        assert variables[0]["measure"] == "nominal"
+        assert variables[1]["measure"] is None
+        assert variables[2]["measure"] == "scale"
+        assert variables[0]["width"] == 1
+        assert variables[2]["decimals"] == 1
 
     def test_no_internal_keys_leaked(self, sample_csv_path):
         _, _, variables = read_csv(str(sample_csv_path))
@@ -137,6 +142,16 @@ class TestReadExcel:
         df, file_meta, variables = read_excel(str(sample_excel_path), sheet="1")
         assert len(variables) == 2
 
+    def test_infers_measure_width_and_decimals(self, sample_excel_path):
+        _, _, variables = read_excel(str(sample_excel_path))
+        by_name = {v["name"]: v for v in variables}
+
+        assert by_name["id"]["measure"] == "nominal"
+        assert by_name["name"]["measure"] is None
+        assert by_name["score"]["measure"] == "scale"
+        assert by_name["score"]["width"] == 4
+        assert by_name["score"]["decimals"] == 1
+
 
 class TestReadParquet:
     def test_roundtrip(self, sample_parquet_path):
@@ -172,6 +187,18 @@ class TestReadSAS:
 
         assert df["Make"].iloc[0] == "Acura"
         assert df["Model"].iloc[0] == "MDX"
+
+    def test_infers_missing_metadata_from_sas_sample(self):
+        sample_path = Path(__file__).resolve().parents[1] / "sample_files" / "cars.sas7bdat"
+        _, _, variables = read_sas(str(sample_path))
+        type_map = {v["name"]: v for v in variables}
+
+        assert type_map["make"]["measure"] == "nominal"
+        assert type_map["msrp"]["measure"] == "scale"
+        assert type_map["make"]["width"] == 13
+        assert type_map["model"]["width"] == 40
+        assert type_map["enginesize"]["decimals"] == 1
+        assert type_map["msrp"]["decimals"] == 0
 
 
 class TestAssignPublicNames:

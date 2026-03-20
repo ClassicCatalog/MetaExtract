@@ -45,6 +45,13 @@ class TestBuildJsonOutput:
         result = build_json_output(sample_file_meta, variables_with_stats)
         assert result["source_file"] == "/tmp/sample.csv"
 
+    def test_spss_measure_not_emitted_in_json_stats(self, sample_file_meta, variables_with_stats):
+        result = build_json_output(sample_file_meta, variables_with_stats)
+        for var in result["variables"]:
+            stats = var.get("stats")
+            if stats is not None:
+                assert "spss_measure" not in stats
+
 
 class TestBuildCSVOutput:
     def test_no_nested_structures(self, sample_file_meta, variables_with_stats):
@@ -62,6 +69,7 @@ class TestBuildCSVOutput:
         fieldnames = reader.fieldnames
         stat_fields = [f for f in fieldnames if f.startswith("stat_")]
         assert len(stat_fields) > 0
+        assert "stat_spss_measure" not in fieldnames
 
     def test_one_row_per_variable(self, sample_file_meta, variables_with_stats):
         text = build_csv_output(sample_file_meta, variables_with_stats)

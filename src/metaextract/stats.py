@@ -76,7 +76,7 @@ def _normalize_comparable_value(value):
     return str(safe_value)
 
 
-def _compute_freq(series: pd.Series, value_labels: dict, non_null: int) -> dict:
+def _compute_freq(series: pd.Series, value_labels: dict, non_null: int, top_n: int = 20) -> dict:
     """Compute exact-match frequency distribution for labeled values."""
     normalized_counts = (
         series.dropna()
@@ -84,21 +84,23 @@ def _compute_freq(series: pd.Series, value_labels: dict, non_null: int) -> dict:
         .value_counts()
     )
 
-    freq = {}
+    ranked = []
     for raw_key, label in value_labels.items():
         normalized_key = _normalize_comparable_value(raw_key)
         count = int(normalized_counts.get(normalized_key, 0))
-        freq[str(raw_key)] = {
+        ranked.append((str(raw_key), {
             "label": label,
             "count": count,
             "percent": round(count / non_null * 100, 2) if non_null > 0 else 0.0,
-        }
-    return freq
+        }))
+
+    ranked.sort(key=lambda item: (-item[1]["count"], item[0]))
+    return dict(ranked[:top_n])
 
 
-def _build_raw_frequency_stats(series: pd.Series, non_null: int) -> dict:
+def _build_raw_frequency_stats(series: pd.Series, non_null: int, top_n: int = 20) -> dict:
     valid = series.dropna()
-    value_counts = valid.value_counts().sort_index()
+    value_counts = valid.value_counts().head(top_n)
     return {
         str(_safe(val)): {
             "count": int(cnt),
@@ -199,18 +201,26 @@ def _compute_variable_stats(
                 stats["mode_count"] = int((valid == mode_vals.iloc[0]).sum())
 
             if value_labels:
-                stats["value_frequencies"] = _compute_freq(series, value_labels, non_null)
+                stats["value_frequencies"] = _compute_freq(
+                    series, value_labels, non_null, top_n=top_n
+                )
 
     elif stat_type == "categorical":
         if value_labels:
-            stats["value_frequencies"] = _compute_freq(series, value_labels, non_null)
+            stats["value_frequencies"] = _compute_freq(
+                series, value_labels, non_null, top_n=top_n
+            )
         else:
-            stats["value_frequencies"] = _build_raw_frequency_stats(series, non_null)
+            stats["value_frequencies"] = _build_raw_frequency_stats(
+                series, non_null, top_n=top_n
+            )
 
     elif stat_type == "discrete":
         col = pd.to_numeric(series, errors="coerce")
         valid = col.dropna()
-        stats["value_frequencies"] = _build_raw_frequency_stats(valid, non_null)
+        stats["value_frequencies"] = _build_raw_frequency_stats(
+            valid, non_null, top_n=top_n
+        )
         stats["min"] = _safe(valid.min())
         stats["max"] = _safe(valid.max())
 

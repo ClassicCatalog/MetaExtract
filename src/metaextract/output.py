@@ -64,6 +64,8 @@ def build_json_output(
     for v in variables:
         var_dict = {k: val for k, val in v.items() if not k.startswith("_")}
         stats = var_dict.pop("stats", None)
+        if isinstance(stats, dict):
+            stats = {k: val for k, val in stats.items() if k != "spss_measure"}
         var_dict["stats"] = stats
         var_list.append(var_dict)
 
@@ -83,7 +85,7 @@ def build_json_output(
 def build_csv_output(file_meta: dict, variables: list[dict]) -> str:
     """Build a flat CSV string — one row per variable, no nested structures."""
     SCALAR_STAT_FIELDS = [
-        "stat_type", "spss_measure", "total_count", "valid_count", "missing_count",
+        "stat_type", "total_count", "valid_count", "missing_count",
         "percent_missing", "unique_count", "has_data", "mean", "median", "std",
         "variance", "min", "max", "range", "sum", "q1", "q3", "iqr", "p5", "p10",
         "p90", "p95", "skewness", "kurtosis", "sem", "cv", "mode", "mode_count",
