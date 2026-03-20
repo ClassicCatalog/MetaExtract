@@ -50,6 +50,9 @@ class TestSafe:
     def test_numpy_nan_float(self):
         assert _safe(np.float64("nan")) is None
 
+    def test_pandas_na(self):
+        assert _safe(pd.NA) is None
+
 
 class TestFormatValueLabels:
     def test_empty_dict(self):

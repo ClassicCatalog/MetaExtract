@@ -58,6 +58,10 @@ def _build_col_name_map(variables: list[dict]) -> dict:
               help="Include the last N rows of data in JSON output.")
 @click.option("--data-only", is_flag=True, default=False,
               help="Output only the data rows in JSON output (requires --head and/or --tail).")
+@click.option("--max-rows", default=None, type=click.IntRange(min=1),
+              help="Limit the number of data rows processed.")
+@click.option("--debug", is_flag=True, default=False, hidden=True,
+              help="Show full traceback on error.")
 def main(
     input_file,
     input_format,
@@ -74,6 +78,8 @@ def main(
     head,
     tail,
     data_only,
+    max_rows,
+    debug,
 ):
     """Extract metadata and statistics from data files.
 
@@ -119,12 +125,13 @@ def main(
             from metaextract.readers import read_csv
             df, file_meta, variables = read_csv(
                 str(path), delimiter=delimiter, quotechar=quotechar,
-                encoding=encoding, no_header=no_header,
+                encoding=encoding, no_header=no_header, nrows=max_rows,
             )
         elif fmt == "qualtrics":
             from metaextract.readers import read_qualtrics_csv
             df, file_meta, variables = read_qualtrics_csv(
-                str(path), delimiter=delimiter, quotechar=quotechar, encoding=encoding,
+                str(path), delimiter=delimiter, quotechar=quotechar,
+                encoding=encoding, nrows=max_rows,
             )
         elif fmt == "excel":
             from metaextract.readers import read_excel
@@ -134,7 +141,15 @@ def main(
             df, file_meta, variables = read_parquet(str(path))
         else:
             raise click.UsageError(f"Unsupported format: {fmt}")
+
+        # Truncate non-CSV formats after reading
+        if max_rows and len(df) > max_rows and fmt not in ("csv", "qualtrics"):
+            df = df.head(max_rows)
+            file_meta["number_rows"] = len(df)
+
     except Exception as exc:
+        if debug:
+            raise
         raise click.ClickException(str(exc)) from exc
 
     # Compute stats

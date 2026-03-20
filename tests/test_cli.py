@@ -259,3 +259,27 @@ class TestCLIQualtricsStats:
         top_values = qid1["stats"]["top_values"]
         assert all(item["value"] != "How satisfied are you?" for item in top_values)
         assert {item["value"] for item in top_values} == {"Very satisfied", "Neutral"}
+
+
+class TestCLIDebugAndMaxRows:
+    def test_debug_flag_shows_traceback(self, runner, tmp_path):
+        p = tmp_path / "garbage.sav"
+        p.write_bytes(b"\x00\x01\x02\x03\x80\x81\x82\x83")
+        result = runner.invoke(main, [str(p), "--debug"])
+        assert result.exit_code != 0
+        assert result.exception is not None
+
+    def test_binary_garbage_file(self, runner, tmp_path):
+        p = tmp_path / "garbage.sav"
+        p.write_bytes(b"\x00\x01\x02\x03\x80\x81\x82\x83")
+        result = runner.invoke(main, [str(p)])
+        assert result.exit_code != 0
+
+    def test_max_rows_limits_output(self, runner, tmp_path):
+        lines = ["id,value"] + [f"{i},{i*10}" for i in range(100)]
+        p = tmp_path / "big.csv"
+        p.write_text("\n".join(lines) + "\n")
+        result = runner.invoke(main, [str(p), "--max-rows", "5"])
+        assert result.exit_code == 0, result.output
+        data = json.loads(result.output)
+        assert data["number_rows"] == 5

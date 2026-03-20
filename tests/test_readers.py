@@ -3,7 +3,14 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from metaextract.readers import read_csv, read_excel, read_parquet, read_qualtrics_csv, read_sas
+from metaextract.readers import (
+    _assign_public_names,
+    read_csv,
+    read_excel,
+    read_parquet,
+    read_qualtrics_csv,
+    read_sas,
+)
 
 
 class TestReadCSV:
@@ -165,3 +172,17 @@ class TestReadSAS:
 
         assert df["Make"].iloc[0] == "Acura"
         assert df["Model"].iloc[0] == "MDX"
+
+
+class TestAssignPublicNames:
+    def test_literal_double_underscore_collision(self):
+        """Columns like ['id__2', 'ID', 'id'] where 'id__2' is a real column name."""
+        variables = [
+            {"_raw_col_name": "id__2"},
+            {"_raw_col_name": "ID"},
+            {"_raw_col_name": "id"},
+        ]
+        _assign_public_names(variables)
+        names = [v["name"] for v in variables]
+        assert len(names) == len(set(names)), f"Duplicate names: {names}"
+        assert "id__2" in names

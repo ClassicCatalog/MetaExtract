@@ -102,7 +102,7 @@ def _build_raw_frequency_stats(series: pd.Series, non_null: int) -> dict:
     return {
         str(_safe(val)): {
             "count": int(cnt),
-            "percent": round(cnt / non_null * 100, 2),
+            "percent": round(cnt / non_null * 100, 2) if non_null > 0 else 0.0,
         }
         for val, cnt in value_counts.items()
     }
@@ -190,7 +190,7 @@ def _compute_variable_stats(
             stats["kurtosis"] = _safe(valid.kurtosis())
             stats["sem"] = _safe(valid.sem())
 
-            if stats.get("mean") and stats["mean"] != 0:
+            if stats.get("mean") is not None and stats["mean"] != 0:
                 stats["cv"] = _safe(valid.std() / abs(valid.mean()))
 
             mode_vals = valid.mode()
@@ -258,7 +258,7 @@ def compute_all_stats(
         # Booleans: treat as nominal categorical
         if pd.api.types.is_bool_dtype(series.dtype):
             measure = "nominal"
-            series = series.map({True: 1, False: 0, None: None})
+            series = series.map({True: 1, False: 0}).astype("Int64")
 
         if skip_stats:
             var["stats"] = None

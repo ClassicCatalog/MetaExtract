@@ -40,7 +40,7 @@ NUMERIC_STRING_RE = re.compile(r"^[+-]?\d+(?:\.\d+)?$")
 
 def _safe(val):
     """Convert numpy/pandas types to JSON-safe Python types."""
-    if val is None or val is pd.NaT:
+    if val is None or val is pd.NaT or val is pd.NA:
         return None
     if isinstance(val, (float, np.floating)) and math.isnan(val):
         return None
@@ -126,18 +126,11 @@ def detect_datetime_series(series: pd.Series, col_name: str) -> pd.Series | None
     except TypeError:
         parsed = pd.to_datetime(non_null, errors="coerce")
     parse_rate = float(parsed.notna().mean())
-    if parse_rate >= DATETIME_HIGH_PARSE_RATE:
-        try:
-            result = pd.to_datetime(series, errors="coerce", format="mixed")
-        except TypeError:
-            result = pd.to_datetime(series, errors="coerce")
-        return result
-
-    if has_datetime_name and parse_rate >= DATETIME_NAME_ASSISTED_PARSE_RATE:
-        try:
-            result = pd.to_datetime(series, errors="coerce", format="mixed")
-        except TypeError:
-            result = pd.to_datetime(series, errors="coerce")
+    if parse_rate >= DATETIME_HIGH_PARSE_RATE or (
+        has_datetime_name and parse_rate >= DATETIME_NAME_ASSISTED_PARSE_RATE
+    ):
+        result = pd.Series(pd.NaT, index=series.index, dtype="datetime64[ns]")
+        result.loc[parsed.index] = parsed
         return result
 
     return None

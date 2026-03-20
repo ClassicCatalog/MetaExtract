@@ -69,6 +69,25 @@ class TestBuildCSVOutput:
         rows = list(reader)
         assert len(rows) == 5
 
+    def test_tab_cr_lf_prefixed_cells_are_escaped(self, sample_file_meta):
+        variables = [{
+            "name": "\ttab_start",
+            "label": "\rcarriage",
+            "type": "string",
+            "format": None,
+            "width": None,
+            "decimals": None,
+            "measure": None,
+            "missing_values": "\nnewline",
+            "values": None,
+            "stats": None,
+        }]
+        text = build_csv_output(sample_file_meta, variables)
+        row = next(csv.DictReader(io.StringIO(text)))
+        assert row["name"] == "'\ttab_start"
+        assert row["label"] == "'\rcarriage"
+        assert row["missing_values"] == "'\nnewline"
+
     def test_formula_like_cells_are_escaped(self, sample_file_meta):
         variables = [{
             "name": "=SUM(1,1)",

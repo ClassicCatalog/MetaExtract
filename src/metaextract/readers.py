@@ -26,8 +26,9 @@ def _assign_public_names(variables: list[dict]) -> list[dict]:
         if name_counts[base_name] > 1:
             candidate = f"{base_name}__{name_counts[base_name]}"
 
-        if candidate in assigned_names:
-            raise ValueError(f"Could not assign unique output name for column '{variable['_raw_col_name']}'.")
+        while candidate in assigned_names:
+            name_counts[base_name] += 1
+            candidate = f"{base_name}__{name_counts[base_name]}"
 
         variable["name"] = candidate
         assigned_names.add(candidate)
@@ -39,16 +40,18 @@ def _trim_string_columns(df: pd.DataFrame) -> pd.DataFrame:
     """Trim leading/trailing whitespace from string-like columns."""
     for col in df.columns:
         if pd.api.types.is_string_dtype(df[col].dtype) or pd.api.types.is_object_dtype(df[col].dtype):
-            non_null = df[col].dropna()
-            if non_null.empty:
-                continue
-            if non_null.map(lambda val: isinstance(val, str)).all():
+            try:
                 df[col] = df[col].str.strip()
+            except AttributeError:
+                pass
     return df
 
 
 def _coerce_datetime_like_columns(df: pd.DataFrame) -> pd.DataFrame:
-    """Parse string/object columns that confidently look like datetimes."""
+    """Parse string/object columns that confidently look like datetimes.
+
+    Note: mutates *df* in-place (columns are overwritten with parsed datetime series).
+    """
     for col in df.columns:
         parsed = detect_datetime_series(df[col], str(col))
         if parsed is not None:
@@ -190,6 +193,7 @@ def read_csv(
     quotechar: str = '"',
     encoding: str = "utf-8",
     no_header: bool = False,
+    nrows: int | None = None,
 ) -> tuple[pd.DataFrame, dict, list[dict]]:
     header = None if no_header else 0
     df = pd.read_csv(
@@ -198,6 +202,7 @@ def read_csv(
         quotechar=quotechar,
         encoding=encoding,
         header=header,
+        nrows=nrows,
     )
     df = _trim_string_columns(df)
     df = _coerce_datetime_like_columns(df)
@@ -212,6 +217,7 @@ def read_qualtrics_csv(
     delimiter: str = ",",
     quotechar: str = '"',
     encoding: str = "utf-8",
+    nrows: int | None = None,
 ) -> tuple[pd.DataFrame, dict, list[dict]]:
     with open(path, newline="", encoding=encoding) as fh:
         reader = csv.reader(fh, delimiter=delimiter, quotechar=quotechar)
@@ -231,6 +237,7 @@ def read_qualtrics_csv(
         encoding=encoding,
         header=0,
         skiprows=[1],
+        nrows=nrows,
     )
     df = _trim_string_columns(df)
     df = _coerce_datetime_like_columns(df)

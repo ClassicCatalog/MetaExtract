@@ -7,7 +7,7 @@ from metaextract.utils import _safe
 
 def _sanitize_csv_cell(value):
     """Escape spreadsheet formulas in string cells."""
-    if isinstance(value, str) and value[:1] in ("=", "+", "-", "@"):
+    if isinstance(value, str) and value[:1] in ("=", "+", "-", "@", "\t", "\r", "\n"):
         return f"'{value}"
     return value
 

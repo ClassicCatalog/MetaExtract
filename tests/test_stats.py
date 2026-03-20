@@ -2,7 +2,13 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from metaextract.stats import _is_categorical, _compute_freq, _compute_variable_stats
+from metaextract.stats import (
+    _is_categorical,
+    _compute_freq,
+    _compute_variable_stats,
+    _build_raw_frequency_stats,
+    compute_all_stats,
+)
 
 
 class TestIsCategorical:
@@ -125,3 +131,60 @@ class TestComputeVariableStats:
         stats = _compute_variable_stats("x", series, "numeric", {}, "scale")
         assert stats["missing_count"] == 2
         assert stats["valid_count"] == 2
+
+
+class TestBuildRawFrequencyStats:
+    def test_empty_series(self):
+        series = pd.Series([], dtype="float64")
+        result = _build_raw_frequency_stats(series, non_null=0)
+        assert result == {}
+
+    def test_nonzero_series_with_zero_non_null(self):
+        series = pd.Series([1.0, 2.0])
+        result = _build_raw_frequency_stats(series, non_null=0)
+        for val in result.values():
+            assert val["percent"] == 0.0
+
+
+class TestCVEdgeCases:
+    def test_cv_absent_when_mean_is_zero(self):
+        series = pd.Series([-1.0, 1.0])
+        stats = _compute_variable_stats("x", series, "numeric", {}, "scale")
+        assert "cv" not in stats
+
+    def test_cv_present_when_mean_nonzero(self):
+        series = pd.Series([10.0, 20.0, 30.0])
+        stats = _compute_variable_stats("x", series, "numeric", {}, "scale")
+        assert "cv" in stats
+        assert stats["cv"] is not None
+
+
+class TestNullableBooleanDtype:
+    def test_nullable_boolean_dtype(self):
+        arr = pd.array([True, False, None, True], dtype="boolean")
+        series = pd.Series(arr)
+        df = pd.DataFrame({"is_active": series})
+        variables = [{
+            "name": "is_active", "_raw_col_name": "is_active",
+            "label": None, "type": "boolean",
+            "format": None, "width": None, "decimals": None,
+            "measure": None, "missing_values": None,
+            "values": None, "_raw_value_labels": {},
+            "stats": None,
+        }]
+        result = compute_all_stats(df, variables, top_n=20, skip_stats=False)
+        stats = result[0]["stats"]
+        assert stats["missing_count"] == 1
+        assert stats["valid_count"] == 3
+
+
+class TestDiscreteStats:
+    def test_name_prefix_triggers_discrete(self):
+        series = pd.Series([0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1] * 10)
+        stats = _compute_variable_stats("is_active", series, "numeric", {}, None)
+        assert stats["stat_type"] == "discrete"
+
+    def test_low_cardinality_triggers_discrete(self):
+        series = pd.Series([1, 2, 3, 1, 2, 3, 1, 2, 3])
+        stats = _compute_variable_stats("code", series, "numeric", {}, None)
+        assert stats["stat_type"] == "discrete"
